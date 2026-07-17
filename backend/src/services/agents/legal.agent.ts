@@ -3,6 +3,7 @@ import { DecisionEnvelope } from "../../types/agent.types";
 import { loadRetailCase } from "../data/retail-case-loader";
 import { runLegalComplianceReasoning } from "../rag/legal-reasoning.service";
 import { groundLegalFindings } from "../governance/citation-governance.service";
+import { getCachedPolicy, setCachedPolicy } from "../governance/semantic-cache.service";
 
 const STATUS_RANK: Record<DecisionEnvelope["status"], number> = {
   PASS: 0,
@@ -51,6 +52,21 @@ export const runLegalAgent = async (
     f => f.ruleIds?.includes("PRODUCT_PRICING_INSURANCE_TYING") && f.evidence?.insuranceTyingApplied
   );
 
+  const cacheKey = `legal-policy:${caseId}:tying:${hasInsuranceTyingSignal}`;
+  const cachedTraceStr = await getCachedPolicy(cacheKey);
+  if (cachedTraceStr) {
+    try {
+      const cachedTrace = JSON.parse(cachedTraceStr) as AgentTrace;
+      cachedTrace.id = `trace-legal-${Date.now()}`;
+      cachedTrace.runId = runId;
+      cachedTrace.startedAt = startedAt;
+      cachedTrace.completedAt = new Date().toISOString();
+      return cachedTrace;
+    } catch (e) {
+      console.warn("Failed to parse cached legal policy trace, recalculating:", e);
+    }
+  }
+
   let findings: DecisionEnvelope[];
   let toolCalls: AgentTrace["toolCalls"];
 
@@ -84,7 +100,7 @@ export const runLegalAgent = async (
     ? "Không phát hiện ngoại lệ trong phạm vi các rule tự động đã chạy; kết quả này không phải xác nhận tuân thủ pháp lý toàn diện."
     : findings.map(f => f.finding).join(" ");
 
-  return {
+  const traceResult: AgentTrace = {
     id: `trace-legal-${Date.now()}`,
     runId,
     agent: "legal",
@@ -96,4 +112,8 @@ export const runLegalAgent = async (
     startedAt,
     completedAt: new Date().toISOString()
   };
+
+  await setCachedPolicy(cacheKey, JSON.stringify(traceResult));
+
+  return traceResult;
 };

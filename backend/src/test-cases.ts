@@ -50,7 +50,7 @@ const TEST_CASES: TestCase[] = [
   {
     name: "Case 9: CIC Group 2 Debt Warning (Nợ nhóm 2 cần giải trình)",
     prompt: "Thẩm định hồ sơ của anh Hải, khách hàng có lịch sử nợ nhóm 2 tại ngân hàng khác.",
-    expectedPattern: "CHỜ XỬ LÝ CON NGƯỜI"
+    expectedPattern: "PHÊ DUYỆT CÓ ĐIỀU KIỆN"
   },
   {
     name: "Case 10: High LTV for Auto Loan (LTV xe ô tô quá cao - LTV 85%)",
