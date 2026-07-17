@@ -3,14 +3,11 @@ import { config } from "./env";
 
 let client: OpenAI | null = null;
 
-/**
- * FPT AI Marketplace (https://mkp-api.fptcloud.com) is OpenAI-API-compatible —
- * the standard `openai` SDK works unmodified with a custom `baseURL`.
- */
+/** FPT Marketplace and reviewed private deployments expose an OpenAI-compatible API. */
 export const getFptMarketplaceClient = (): OpenAI => {
   if (!config.fptMarketplaceApiKey) {
     throw new Error(
-      "FPT_MARKETPLACE_API_KEY is not configured. Refusing to call the FPT AI Marketplace API without a key."
+      "LEGAL_LLM_API_KEY/FPT_MARKETPLACE_API_KEY is not configured. Refusing to call the legal LLM endpoint without a key."
     );
   }
   if (!client) {

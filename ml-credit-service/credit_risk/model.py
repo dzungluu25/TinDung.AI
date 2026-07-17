@@ -43,8 +43,10 @@ class GovernedCreditNet(nn.Module):
         self.register_buffer("decreasing_index", torch.tensor(decreasing, dtype=torch.long))
         self.register_buffer("residual_index", torch.tensor(residual, dtype=torch.long))
 
-        self.increasing_raw_weight = nn.Parameter(torch.zeros(len(increasing)))
-        self.decreasing_raw_weight = nn.Parameter(torch.zeros(len(decreasing)))
+        # Start near zero positive weight (softplus(-3) ~= 0.049) so the sum of
+        # constrained features does not saturate hazards before learning.
+        self.increasing_raw_weight = nn.Parameter(torch.full((len(increasing),), -3.0))
+        self.decreasing_raw_weight = nn.Parameter(torch.full((len(decreasing),), -3.0))
         self.monotonic_bias = nn.Parameter(torch.zeros(1))
 
         self.embeddings = nn.ModuleList(
@@ -60,8 +62,9 @@ class GovernedCreditNet(nn.Module):
             nn.SiLU(),
             nn.Dropout(train_config.dropout),
         )
-        representation_dim = train_config.hidden_dim // 2 + 1
-        self.hazard_head = nn.Linear(representation_dim, len(train_config.horizons_months))
+        residual_dim = train_config.hidden_dim // 2
+        representation_dim = residual_dim + 1
+        self.hazard_head = nn.Linear(residual_dim, len(train_config.horizons_months))
         self.lgd_head = nn.Linear(representation_dim, 1)
 
     def forward(self, numeric: Tensor, categorical: Tensor) -> RiskOutput:
@@ -82,7 +85,7 @@ class GovernedCreditNet(nn.Module):
 
         # One shared monotonic score is added to each hazard logit. The unconstrained
         # residual cannot see monotonic features, preserving the risk direction.
-        hazard_logits = self.hazard_head(representation) + monotonic_score
+        hazard_logits = self.hazard_head(residual_representation) + monotonic_score
         interval_hazard = torch.sigmoid(hazard_logits)
         survival = torch.cumprod(1.0 - interval_hazard.clamp(max=1.0 - 1e-6), dim=1)
         cumulative_pd = 1.0 - survival
@@ -98,4 +101,3 @@ class GovernedCreditNet(nn.Module):
             -numeric[:, self.decreasing_index] * F.softplus(self.decreasing_raw_weight)
         )
         return contributions
-

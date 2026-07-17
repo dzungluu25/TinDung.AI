@@ -1,4 +1,4 @@
-import { CheckCircle2, CircleDashed, Clock3, Landmark, TrendingUp, TicketCheck } from "lucide-react";
+import { BookOpenCheck, CheckCircle2, CircleDashed, Clock3, ExternalLink, Landmark, ShieldCheck, TrendingUp, TicketCheck, TriangleAlert } from "lucide-react";
 import { Card } from "../../components/Card";
 import { Badge } from "../../components/Badge";
 import { Skeleton } from "../../components/Skeleton";
@@ -44,6 +44,53 @@ export const FinalAnswerPanel = () => {
   return (
     <Card title="Kết luận thẩm định" action={<Badge tone="brand">Run {response.runId.replace("run-", "#")}</Badge>}>
       <p className={styles.answer}>{response.finalAnswer}</p>
+
+      {response.confidence?.status === "NEEDS_REVIEW" && (
+        <div className={styles.errorBox} role="status">
+          Hệ thống chưa đủ chắc chắn để đưa ra quyết định. Hồ sơ đã được chuyển sang người kiểm duyệt; không có hạn mức hoặc giá vay nào được tự động phát hành.
+        </div>
+      )}
+
+      {response.transparency && (
+        <section className={styles.trustPanel} aria-label="Minh bạch và nguồn kiểm chứng">
+          <div className={styles.trustHeader}>
+            <ShieldCheck size={18} />
+            <div>
+              <strong>Mức tin cậy: {response.transparency.confidence}</strong>
+              <span>Bao phủ bằng chứng {response.transparency.evidenceCoveragePercent}% · {response.transparency.policyVersion}</span>
+            </div>
+            {response.transparency.requiresHumanReview && <Badge tone="warning">Cần người duyệt</Badge>}
+          </div>
+
+          <ol className={styles.sourceList}>
+            {response.transparency.citations.map(citation => (
+              <li key={citation.id}>
+                <BookOpenCheck size={14} />
+                <div>
+                  {citation.url ? (
+                    <a href={citation.url} target="_blank" rel="noreferrer">
+                      {citation.documentNumber}: {citation.locator} <ExternalLink size={11} />
+                    </a>
+                  ) : (
+                    <strong>{citation.documentNumber}: {citation.locator}</strong>
+                  )}
+                  <span>{citation.title} · {citation.issuer}</span>
+                </div>
+                <Badge tone={citation.verificationStatus === "VERIFIED_OFFICIAL" ? "success" : "warning"}>
+                  {citation.verificationStatus === "VERIFIED_OFFICIAL" ? "Nguồn chính thức" : "Cần kiểm duyệt nội bộ"}
+                </Badge>
+              </li>
+            ))}
+          </ol>
+
+          {response.transparency.limitations.length > 0 && (
+            <div className={styles.limitations}>
+              <TriangleAlert size={14} />
+              <ul>{response.transparency.limitations.map(item => <li key={item}>{item}</li>)}</ul>
+            </div>
+          )}
+        </section>
+      )}
 
       {(response.approvedTerms || response.businessValue) && (
         <div className={styles.decisionMetrics}>

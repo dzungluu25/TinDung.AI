@@ -72,7 +72,7 @@ export const recordAuditEvent = async (
     details = "PHÁT HIỆN TẤN CÔNG PROMPT INJECTION: Hồ sơ chứa chỉ thị điều khiển hệ thống ngoài phạm vi cho phép. Hệ thống đã cô lập mã độc.";
   }
 
-  const eventId = `evt-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+  const eventId = `evt-${crypto.randomUUID()}`;
   const timestamp = new Date().toISOString();
 
   const client = await pgPool.connect();

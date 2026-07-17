@@ -4,19 +4,23 @@ import { getOrchestrationRun } from "../services/orchestration/trace.service";
 import { OrchestrationRequest, OrchestrationStreamEvent } from "../types/orchestration.types";
 import { AuthenticatedRequest } from "../middleware/auth.middleware";
 import { AGENT_CONTRACTS } from "../services/orchestration/agent-role-registry";
+import { OrchestrationInputError } from "../services/orchestration/input-router.service";
 
 export const orchestratePrompt = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { prompt, approvalToken } = req.body as OrchestrationRequest;
-    if (!prompt) {
+    const { prompt, approvalToken, caseId } = req.body as OrchestrationRequest;
+    if (typeof prompt !== "string" || !prompt.trim()) {
       return res.status(400).json({ error: "Prompt is required" });
     }
     // req.user is guaranteed by the requireAuth middleware mounted on this route.
     const requestedBy = req.user!.sub;
 
-    const result = await executeOrchestration(prompt, requestedBy, approvalToken);
+    const result = await executeOrchestration(prompt, requestedBy, approvalToken, caseId);
     return res.status(200).json(result);
   } catch (error) {
+    if (error instanceof OrchestrationInputError) {
+      return res.status(422).json({ error: error.message, code: error.code });
+    }
     console.error("Orchestration error:", error);
     return res.status(500).json({ error: "Internal server error during orchestration" });
   }
@@ -28,8 +32,8 @@ export const orchestratePrompt = async (req: AuthenticatedRequest, res: Response
  * this is a POST carrying an Authorization header, which EventSource cannot send.
  */
 export const orchestratePromptStream = async (req: AuthenticatedRequest, res: Response) => {
-  const { prompt, approvalToken } = req.body as OrchestrationRequest;
-  if (!prompt) {
+  const { prompt, approvalToken, caseId } = req.body as OrchestrationRequest;
+  if (typeof prompt !== "string" || !prompt.trim()) {
     return res.status(400).json({ error: "Prompt is required" });
   }
   const requestedBy = req.user!.sub;
@@ -43,10 +47,14 @@ export const orchestratePromptStream = async (req: AuthenticatedRequest, res: Re
   };
 
   try {
-    await streamOrchestration(prompt, requestedBy, approvalToken, writeEvent);
+    await streamOrchestration(prompt, requestedBy, approvalToken, writeEvent, caseId);
   } catch (error) {
-    console.error("Orchestration stream error:", error);
-    writeEvent({ type: "error", message: "Internal server error during orchestration" });
+    if (error instanceof OrchestrationInputError) {
+      writeEvent({ type: "error", message: error.message });
+    } else {
+      console.error("Orchestration stream error:", error);
+      writeEvent({ type: "error", message: "Internal server error during orchestration" });
+    }
   } finally {
     res.end();
   }

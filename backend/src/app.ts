@@ -2,7 +2,6 @@ import express from "express";
 import cors from "cors";
 import authRoutes from "./routes/auth.routes";
 import orchestrationRoutes from "./routes/orchestration.routes";
-import mockRoutes from "./routes/mock.routes";
 
 const app = express();
 
@@ -15,6 +14,5 @@ app.get("/health", (req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/orchestrate", orchestrationRoutes);
-app.use("/api/mock", mockRoutes);
 
 export default app;

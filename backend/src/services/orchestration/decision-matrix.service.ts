@@ -1,4 +1,6 @@
 import { DecisionEnvelope, ConditionPrecedent, BlocksAt } from "../../types/agent.types";
+import { randomUUID } from "crypto";
+import { decisionPolicy } from "../../config/policy";
 
 export interface DecisionMatrixOutput {
   finalDecision: "FAST_PASS" | "PASS" | "CONDITIONAL_PASS" | "REJECTED" | "HUMAN_ESCALATION";
@@ -13,6 +15,7 @@ export const decideNextAction = (
   productFindings: DecisionEnvelope[],
   legalFindings: DecisionEnvelope[]
 ): DecisionMatrixOutput => {
+  const policy = decisionPolicy.decisionMatrix;
   const allFindings = [...creditFindings, ...productFindings, ...legalFindings];
   
   const conditions: ConditionPrecedent[] = [];
@@ -32,7 +35,7 @@ export const decideNextAction = (
     // Convert CONDITION severity to ConditionPrecedent
     if (finding.severity === "CONDITION") {
       conditions.push({
-        id: `cond-${Math.floor(1000 + Math.random() * 9000)}`,
+        id: `cond-${randomUUID()}`,
         description: finding.finding,
         blocksAt: finding.blocksAt,
         status: "pending"
@@ -43,7 +46,7 @@ export const decideNextAction = (
   // 2. Apply Veto Hierarchy
   
   // A. Check for Consent Blocker (Blocks external data check)
-  const consentBlocker = legalFindings.find(f => f.ruleIds.includes("LEGAL_CONSENT_MISSING"));
+  const consentBlocker = legalFindings.find(f => f.ruleIds.includes(policy.ruleIds.consentMissing));
   if (consentBlocker) {
     vetoedBy = "legal";
     return {
@@ -51,38 +54,39 @@ export const decideNextAction = (
       vetoedBy,
       reasonCodes,
       conditions,
-      requiredFixes: ["Yêu cầu khách hàng bổ sung ký tên vào bản thỏa thuận đồng thuận (Consent Registry)."]
+      requiredFixes: [policy.requiredFixes.consentMissing]
     };
   }
 
   // B. Check for Insurance Tying (Violation blocking approval)
-  const tyingViolation = legalFindings.find(f => f.ruleIds.includes("LEGAL_INSURANCE_TYING_DETECTED"));
+  const tyingViolation = legalFindings.find(f => f.ruleIds.includes(policy.ruleIds.insuranceTying));
   if (tyingViolation) {
     vetoedBy = "legal";
     return {
       finalDecision: "HUMAN_ESCALATION",
       vetoedBy,
-      reasonCodes: ["LEGAL_INSURANCE_TYING_DETECTED"],
+      reasonCodes: [policy.ruleIds.insuranceTying],
       conditions: [],
       requiredFixes
     };
   }
 
-  // C. Check for unregistered project (Blocks disbursement)
-  const projectDirty = legalFindings.find(f => f.ruleIds.includes("LEGAL_PROJECT_NOT_REGISTERED"));
+  // C. Missing/negative guarantee evidence blocks disbursement, but absence of proof is
+  // not proof that the collateral is legally invalid. Escalate for documentary review.
+  const projectDirty = legalFindings.find(f => f.ruleIds.includes(policy.ruleIds.projectNotRegistered));
   if (projectDirty) {
     vetoedBy = "legal";
     return {
-      finalDecision: "REJECTED",
+      finalDecision: "HUMAN_ESCALATION",
       vetoedBy,
       reasonCodes,
       conditions: [],
-      requiredFixes: ["Dự án không đủ điều kiện liên kết. Yêu cầu đổi sang tài sản thế chấp khác."]
+      requiredFixes: [policy.requiredFixes.projectEvidenceMissing]
     };
   }
 
   // D. Check for credit failure
-  const creditFail = creditFindings.find(f => f.ruleIds.includes("CREDIT_RESTRUCTURE_FAILED"));
+  const creditFail = creditFindings.find(f => f.ruleIds.includes(policy.ruleIds.creditRestructureFailed));
   if (creditFail) {
     vetoedBy = "credit";
     return {
@@ -90,7 +94,7 @@ export const decideNextAction = (
       vetoedBy,
       reasonCodes,
       conditions: [],
-      requiredFixes: ["Hồ sơ không đủ khả năng tài chính trả nợ. Vượt ngưỡng DTI stress tối đa sau tái cấu trúc."]
+      requiredFixes: [policy.requiredFixes.creditFailed]
     };
   }
 
@@ -102,13 +106,13 @@ export const decideNextAction = (
   // Exception: the credit agent deliberately keeps the *original* LTV/DTI breach findings
   // in its output as an audit trail even after finding a passing restructure — those are
   // superseded, not unresolved, once CREDIT_RESTRUCTURE_PASS is present.
-  const creditRestructured = creditFindings.find(f => f.ruleIds.includes("CREDIT_RESTRUCTURE_PASS"));
-  const SUPERSEDED_BY_RESTRUCTURE = new Set(["CREDIT_LTV_EXCEEDS_LIMIT", "CREDIT_DTI_EXCEEDS_LIMIT"]);
+  const creditRestructured = creditFindings.find(f => f.ruleIds.includes(policy.ruleIds.creditRestructurePassed));
+  const supersededByRestructure = new Set(policy.supersededByRestructure);
 
   const unhandledBlocker = allFindings.find(f => {
     if (f.severity !== "BLOCKER") return false;
     if (!(f.status === "FAIL" || f.status === "VIOLATION" || f.status === "BLOCKED")) return false;
-    if (creditRestructured && f.agent === "credit" && f.ruleIds.some(id => SUPERSEDED_BY_RESTRUCTURE.has(id))) {
+    if (creditRestructured && f.agent === "credit" && f.ruleIds.some(id => supersededByRestructure.has(id))) {
       return false;
     }
     return true;
@@ -130,7 +134,7 @@ export const decideNextAction = (
   if (creditRestructured || hasLegalConditions) {
     return {
       finalDecision: "CONDITIONAL_PASS",
-      reasonCodes: creditRestructured ? ["CREDIT_RESTRUCTURED"] : ["LEGAL_CONDITIONS_REQUIRED"],
+      reasonCodes: creditRestructured ? [policy.reasonCodes.creditRestructured] : [policy.reasonCodes.legalConditionsRequired],
       conditions,
       requiredFixes
     };
@@ -139,7 +143,7 @@ export const decideNextAction = (
   // G. Fast pass or standard pass
   return {
     finalDecision: "PASS",
-    reasonCodes: ["STANDARD_CHECK_PASS"],
+    reasonCodes: [policy.reasonCodes.standardCheckPassed],
     conditions: [],
     requiredFixes: []
   };

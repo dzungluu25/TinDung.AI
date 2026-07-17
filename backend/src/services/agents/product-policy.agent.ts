@@ -2,6 +2,7 @@ import { AgentTrace } from "../../types/trace.types";
 import { ProductOption, PricingOffer, DecisionEnvelope } from "../../types/agent.types";
 import { getCachedPolicy, setCachedPolicy } from "../governance/semantic-cache.service";
 import { loadRetailCase } from "../data/retail-case-loader";
+import { productCatalog } from "../../config/policy";
 
 export const runProductPolicyAgent = async (
   runId: string,
@@ -11,7 +12,7 @@ export const runProductPolicyAgent = async (
   const startedAt = new Date().toISOString();
 
   // 1. Try to read from Redis cache
-  const cacheKey = `product-policy:${caseId}:reprice:${isReprice}`;
+  const cacheKey = `product-policy:${productCatalog.version}:${caseId}:reprice:${isReprice}`;
   const cachedTraceStr = await getCachedPolicy(cacheKey);
   if (cachedTraceStr) {
     try {
@@ -44,26 +45,26 @@ export const runProductPolicyAgent = async (
   }
 
   // Match eligible products
-  const homeLoanProduct: ProductOption = {
-    productId: "PROD-HOME-MORTGAGE",
-    name: "Vay mua nhà dự án SHB",
-    baseRate: 0.083, // 8.3%
-    preferentialRate: 0.075, // 7.5%
-    tenureYearsMax: 25,
-    insuranceRequired: false
-  };
+  const homeLoanProduct = productCatalog.products.find(product => product.productId === productCatalog.primaryProductId);
+  if (!homeLoanProduct) {
+    return {
+      id: `trace-product-${Date.now()}`,
+      runId,
+      agent: "product",
+      task: "Retrieve product policies and match eligibility",
+      status: "failed",
+      summary: `Primary product ${productCatalog.primaryProductId} is missing from catalog ${productCatalog.catalogId}@${productCatalog.version}.`,
+      toolCalls: [],
+      startedAt,
+      completedAt: new Date().toISOString()
+    };
+  }
 
   const eligibleProducts: ProductOption[] = [homeLoanProduct];
 
   if (retailCase.refinanceAutoLoan) {
-    eligibleProducts.push({
-      productId: "PROD-AUTO-REFINANCE",
-      name: "Tái tài trợ ô tô SHB",
-      baseRate: 0.095, // 9.5%
-      preferentialRate: 0.089, // 8.9%
-      tenureYearsMax: 8,
-      insuranceRequired: false
-    });
+    const refinanceProduct = productCatalog.products.find(product => product.productId === productCatalog.eligibility.autoRefinanceProductId);
+    if (refinanceProduct) eligibleProducts.push(refinanceProduct);
   }
 
   // Build pricing offer with the initial "trap"
@@ -86,10 +87,10 @@ export const runProductPolicyAgent = async (
       blocksAt: "NONE",
       finding: "Đã tái lập định giá khoản vay: Lãi suất 7.5% không đi kèm điều kiện mua bảo hiểm.",
       evidence: { appliedRate, insuranceTyingApplied },
-      ruleIds: ["PRODUCT_REPRICE_CLEAN"],
-      citations: ["Chính sách định giá SHB - Phiên bản điều chỉnh tuân thủ"]
+      ruleIds: [productCatalog.ruleIds.repricedClean],
+      citations: [productCatalog.citations.repricedClean]
     });
-  } else if (caseId === "case-complex-main") {
+  } else if (productCatalog.legacyInsuranceConflictCaseIds.includes(caseId)) {
     // Legacy campaign conflict kept in the complex demo case so the compliance
     // self-correction loop can detect and remove insurance-linked pricing.
     if (retailCase.insurancePreference === "accepted") {
@@ -110,8 +111,8 @@ export const runProductPolicyAgent = async (
       blocksAt: "NONE",
       finding: `Áp dụng gói định giá ưu đãi: Lãi suất 7.5% nếu mua bảo hiểm, ngược lại là ${homeLoanProduct.baseRate * 100}%.`,
       evidence: { appliedRate, insuranceTyingApplied, preference: retailCase.insurancePreference },
-      ruleIds: ["PRODUCT_PRICING_INSURANCE_TYING"],
-      citations: ["Chính sách bán chéo sản phẩm SHB - Hướng dẫn 2026"]
+      ruleIds: [productCatalog.ruleIds.insuranceTying],
+      citations: [productCatalog.citations.insuranceTying]
     });
   } else {
     // Normal offers never use optional insurance as a pricing or eligibility input.
@@ -126,8 +127,8 @@ export const runProductPolicyAgent = async (
       blocksAt: "NONE",
       finding: "Định giá độc lập với quyết định mua bảo hiểm.",
       evidence: { appliedRate, insuranceTyingApplied },
-      ruleIds: ["PRODUCT_PRICING_INSURANCE_INDEPENDENT"],
-      citations: ["Product pricing guardrail v2"]
+      ruleIds: [productCatalog.ruleIds.insuranceIndependent],
+      citations: [productCatalog.citations.insuranceIndependent]
     });
   }
 

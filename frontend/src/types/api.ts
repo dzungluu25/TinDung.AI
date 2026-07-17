@@ -77,6 +77,36 @@ export interface ConditionPrecedent {
   status: "pending" | "fulfilled";
 }
 
+export interface VerifiedCitation {
+  id: string;
+  documentNumber: string;
+  title: string;
+  issuer: string;
+  locator: string;
+  url?: string;
+  sourceType: "LAW" | "DECREE" | "CIRCULAR" | "INTERNAL_POLICY" | "STANDARD";
+  verificationStatus: "VERIFIED_OFFICIAL" | "INTERNAL_REVIEW_REQUIRED";
+  effectiveFrom: string;
+  lastVerifiedAt: string;
+}
+
+export interface AnswerTransparency {
+  generatedAt: string;
+  confidence: "HIGH" | "MEDIUM" | "LOW";
+  evidenceCoveragePercent: number;
+  requiresHumanReview: boolean;
+  policyVersion: string;
+  claims: Array<{
+    claimId: string;
+    kind: "FACT" | "CALCULATION" | "DECISION" | "LIMITATION";
+    text: string;
+    citationIds: string[];
+    traceIds: string[];
+  }>;
+  citations: VerifiedCitation[];
+  limitations: string[];
+}
+
 export interface OrchestrationResponse {
   runId: string;
   finalAnswer: string;
@@ -99,6 +129,14 @@ export interface OrchestrationResponse {
     estimatedProcessingCostSavedVnd: number;
     profitable: boolean;
   };
+  confidence?: {
+    status: "VERIFIED" | "NEEDS_REVIEW";
+    score: number;
+    evidenceCoverage: number;
+    reasons: string[];
+    policyVersions: Record<string, string>;
+  };
+  transparency?: AnswerTransparency;
 }
 
 export type RiskTier = "FAST" | "COMPLEX";

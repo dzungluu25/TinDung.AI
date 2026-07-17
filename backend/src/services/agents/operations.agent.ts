@@ -4,6 +4,7 @@ import { loadRetailCase } from "../data/retail-case-loader";
 import { verifyAccessToken } from "../../config/auth";
 import { recordAuditEvent } from "../governance/audit-log.service";
 import { ApprovedLoanTerms, ApprovalMode } from "../../types/product.types";
+import { randomUUID } from "crypto";
 
 /**
  * Verifies the approval token is a genuine, unexpired JWT signed for a CREDIT_APPROVER —
@@ -71,7 +72,7 @@ export const runOperationsAgent = async (
       status: "success"
     });
   } else if (finalDecision === "FAST_PASS" && approvalMode === "AUTO_APPROVAL" && approvedTerms) {
-    ticketId = `SHB-FACILITY-OK-${Math.floor(100000 + Math.random() * 900000)}`;
+    ticketId = `SHB-FACILITY-OK-${randomUUID()}`;
     summary = `Auto-policy đã cấp quyền trong đúng hạn mức. Khởi tạo khế ước vay ${approvedTerms.loanAmount.toLocaleString()} VND trên Core Banking (Facility ID: ${ticketId}).`;
 
     toolCalls.push({
@@ -103,7 +104,7 @@ export const runOperationsAgent = async (
         status: "success"
       });
     } else {
-      ticketId = `SHB-FACILITY-${finalDecision === "PASS" ? "OK" : "COND"}-${Math.floor(100000 + Math.random() * 900000)}`;
+      ticketId = `SHB-FACILITY-${finalDecision === "PASS" ? "OK" : "COND"}-${randomUUID()}`;
       status = "completed";
       const facilityStatus = finalDecision === "PASS" ? "ACTIVE" : "PENDING_CONDITIONS";
       summary = `Người duyệt ${approverActor} đã ký duyệt. Đã tạo khế ước ${approvedTerms?.loanAmount.toLocaleString() ?? "—"} VND trên Core Banking (${ticketId}) ở trạng thái ${facilityStatus}.`;

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from typing import Any
 
 
@@ -8,7 +8,6 @@ from typing import Any
 class FeatureConfig:
     # Protected attributes and direct identifiers are deliberately absent.
     numeric: tuple[str, ...] = (
-        "age_years",
         "monthly_income_vnd",
         "income_volatility_6m",
         "employment_tenure_months",
@@ -61,6 +60,8 @@ class FeatureConfig:
         "ethnicity",
         "insurance_purchase",
     )
+    # Available to the deterministic policy engine, never to the learned model.
+    policy_only: tuple[str, ...] = ("age_years",)
 
     def to_dict(self) -> dict[str, Any]:
         value = asdict(self)
@@ -82,12 +83,15 @@ class TrainConfig:
     fairness_lambda: float = 0.05
     horizons_months: tuple[int, ...] = (3, 6, 12)
     validation_months: int = 3
+    calibration_months: int = 2
     test_months: int = 3
 
 
 @dataclass(frozen=True)
 class PolicyConfig:
     policy_version: str = "DEMO_REQUIRES_BANK_RISK_APPROVAL"
+    policy_source_type: str = "DEMO_NOT_REGULATORY"
+    policy_approval_id: str | None = None
     annual_interest_rate: float = 0.105
     stress_annual_interest_rate: float = 0.14
     max_pd12_upper: float = 0.08
@@ -108,4 +112,3 @@ class PolicyConfig:
 FEATURES = FeatureConfig()
 TRAIN = TrainConfig()
 POLICY = PolicyConfig()
-

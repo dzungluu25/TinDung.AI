@@ -1,5 +1,5 @@
-// Mirrors backend/src/services/orchestration/planner.service.ts's detectCaseIdFromPrompt keyword
-// router, so these chips reliably route to the demo scenario they claim to.
+// Each sample contains enough explicit signals for the backend's guarded demo router.
+// Unsupported free text is rejected rather than silently mapped to a populated fixture.
 export const SAMPLE_PROMPTS = [
   { label: "Hồ sơ sạch (Fast Lane)", prompt: "Thẩm định hồ sơ vay mua căn hộ của chị Bình, khoản vay 500 triệu VND." },
   { label: "Hồ sơ phức tạp (Cần tái cấu trúc)", prompt: "Thẩm định hồ sơ vay mua nhà dự án của anh Hùng, khoản vay 2.8 tỷ VND." },

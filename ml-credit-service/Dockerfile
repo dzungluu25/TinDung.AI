@@ -9,9 +9,9 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY credit_risk ./credit_risk
 COPY scripts ./scripts
+COPY governance ./governance
 
 RUN useradd --create-home --uid 10001 modeluser
 USER modeluser
 EXPOSE 8000
 CMD ["uvicorn", "credit_risk.api:app", "--host", "0.0.0.0", "--port", "8000"]
-

@@ -3,6 +3,7 @@ import { calculateDti } from "../calculators/dti.calculator";
 import { calculateLtv } from "../calculators/ltv.calculator";
 import { DecisionEnvelope } from "../../types/agent.types";
 import { RetailCase, Debt, RequestedLoan } from "../../types/case.types";
+import { decisionPolicy } from "../../config/policy";
 
 export interface CreditScenario {
   loanAmount: number;
@@ -22,13 +23,7 @@ export interface CreditAssessmentResult {
   findings: DecisionEnvelope[];
 }
 
-const STRESS_RATE = 0.135; // 13.5% stress interest rate
-const DTI_LIMIT = 60.0;
-const LTV_LIMIT = 70.0;
-const MAX_MORTGAGE_TENURE_YEARS = 30;
-const AUTO_LOAN_REFINANCE_TENURE_YEARS = 8; // standard consumer auto-loan refinance cap
-const CREDIT_LIMIT_REDUCTION_FACTOR = 0.5; // condition offered during restructure to free up DTI headroom
-
+const creditPolicy = decisionPolicy.credit;
 interface RestructureOutcome {
   loanAmount: number;
   tenureYears: number;
@@ -48,12 +43,12 @@ interface RestructureOutcome {
  */
 const restructureExistingDebt = (debt: Debt): number => {
   if (debt.type === "auto" && debt.outstandingAmount > 0) {
-    const refinancedEmi = calculateEmi(debt.outstandingAmount, STRESS_RATE, AUTO_LOAN_REFINANCE_TENURE_YEARS);
+    const refinancedEmi = calculateEmi(debt.outstandingAmount, creditPolicy.stressAnnualRate, creditPolicy.autoRefinanceTenureYears);
     return Math.min(debt.monthlyOwed, refinancedEmi);
   }
   if (debt.type === "credit_card" && debt.limit) {
-    const reducedLimit = debt.limit * CREDIT_LIMIT_REDUCTION_FACTOR;
-    return Math.min(debt.monthlyOwed, Math.round(reducedLimit * 0.05));
+    const reducedLimit = debt.limit * creditPolicy.creditLimitReductionFactor;
+    return Math.min(debt.monthlyOwed, Math.round(reducedLimit * creditPolicy.creditCardMonthlyObligationRate));
   }
   return debt.monthlyOwed;
 };
@@ -71,21 +66,21 @@ const runRestructureEngine = (
   requestedLoan: RequestedLoan,
   propertyValue: number
 ): RestructureOutcome => {
-  const loanAmount = Math.min(requestedLoan.amount, Math.floor(propertyValue * (LTV_LIMIT / 100)));
+  const loanAmount = Math.min(requestedLoan.amount, Math.floor(propertyValue * (creditPolicy.maximumLtvPercent / 100)));
   const ltv = calculateLtv(loanAmount, propertyValue);
 
-  for (let tenureYears = requestedLoan.tenureYears; tenureYears <= MAX_MORTGAGE_TENURE_YEARS; tenureYears++) {
-    const emi = calculateEmi(loanAmount, STRESS_RATE, tenureYears);
+  for (let tenureYears = requestedLoan.tenureYears; tenureYears <= creditPolicy.maximumMortgageTenureYears; tenureYears++) {
+    const emi = calculateEmi(loanAmount, creditPolicy.stressAnnualRate, tenureYears);
     const dti = calculateDti(restructuredMonthlyDebt + emi, validIncome);
-    if (dti <= DTI_LIMIT) {
+    if (dti <= creditPolicy.maximumDtiPercent) {
       return { loanAmount, tenureYears, restructuredMonthlyDebt, emi, dti, ltv, success: true };
     }
   }
 
-  const emi = calculateEmi(loanAmount, STRESS_RATE, MAX_MORTGAGE_TENURE_YEARS);
+  const emi = calculateEmi(loanAmount, creditPolicy.stressAnnualRate, creditPolicy.maximumMortgageTenureYears);
   return {
     loanAmount,
-    tenureYears: MAX_MORTGAGE_TENURE_YEARS,
+    tenureYears: creditPolicy.maximumMortgageTenureYears,
     restructuredMonthlyDebt,
     emi,
     dti: calculateDti(restructuredMonthlyDebt + emi, validIncome),
@@ -105,7 +100,7 @@ export const evaluateCreditRules = (
   const propertyValue = retailCase.property.value;
 
   // 1. Calculate Original Scenario
-  const originalEmi = calculateEmi(requestedLoan.amount, STRESS_RATE, requestedLoan.tenureYears);
+  const originalEmi = calculateEmi(requestedLoan.amount, creditPolicy.stressAnnualRate, requestedLoan.tenureYears);
   const originalLtv = calculateLtv(requestedLoan.amount, propertyValue);
   
   // Note: DTI stress includes existing debts + requested loan EMI under stress rate
@@ -121,11 +116,11 @@ export const evaluateCreditRules = (
     blocksAt: "NONE",
     finding: `Tính toán thu nhập hợp lệ của khách hàng sau khi giảm trừ (haircut) là ${validIncome.toLocaleString()} VND/tháng.`,
     evidence: { validIncome, rawIncomeSources: retailCase.incomeSources },
-    ruleIds: ["CREDIT_VALID_INCOME_CALCULATED"],
-    citations: ["Quy chế cấp tín dụng bán lẻ SHB - Mục 4.2"]
+    ruleIds: [creditPolicy.ruleIds.incomeCalculated],
+    citations: ["Rule tín dụng demo 2026.07.18 - cần chủ sở hữu chính sách SHB phê duyệt"]
   });
 
-  if (originalLtv > LTV_LIMIT) {
+  if (originalLtv > creditPolicy.maximumLtvPercent) {
     originalStatus = "FAIL";
     findings.push({
       decisionId: `dec-credit-ltv-${Date.now()}`,
@@ -133,14 +128,14 @@ export const evaluateCreditRules = (
       status: "FAIL",
       severity: "BLOCKER",
       blocksAt: "APPROVAL",
-      finding: `Tỷ lệ LTV gốc (${originalLtv}%) vượt hạn mức tối đa quy định là ${LTV_LIMIT}%.`,
-      evidence: { originalLtv, limit: LTV_LIMIT, loanAmount: requestedLoan.amount, propertyValue },
-      ruleIds: ["CREDIT_LTV_EXCEEDS_LIMIT"],
-      citations: ["Quy chế cấp tín dụng bán lẻ SHB - Mục 5.1"]
+      finding: `Tỷ lệ LTV gốc (${originalLtv}%) vượt hạn mức tối đa quy định là ${creditPolicy.maximumLtvPercent}%.`,
+      evidence: { originalLtv, limit: creditPolicy.maximumLtvPercent, loanAmount: requestedLoan.amount, propertyValue },
+      ruleIds: [creditPolicy.ruleIds.ltvExceeded],
+      citations: ["Rule tín dụng demo 2026.07.18 - ngưỡng LTV chưa được SHB phê duyệt"]
     });
   }
 
-  if (originalDti > DTI_LIMIT) {
+  if (originalDti > creditPolicy.maximumDtiPercent) {
     originalStatus = "FAIL";
     findings.push({
       decisionId: `dec-credit-dti-${Date.now()}`,
@@ -148,10 +143,10 @@ export const evaluateCreditRules = (
       status: "FAIL",
       severity: "BLOCKER",
       blocksAt: "APPROVAL",
-      finding: `Tỷ lệ DTI stress gốc (${originalDti}%) vượt quá ngưỡng an toàn cho phép là ${DTI_LIMIT}%.`,
-      evidence: { originalDti, limit: DTI_LIMIT, totalMonthlyDebt: currentMonthlyDebt + originalEmi, validIncome },
-      ruleIds: ["CREDIT_DTI_EXCEEDS_LIMIT"],
-      citations: ["Quy chế cấp tín dụng bán lẻ SHB - Mục 5.2 (Stress test)"]
+      finding: `Tỷ lệ DTI stress gốc (${originalDti}%) vượt quá ngưỡng an toàn cho phép là ${creditPolicy.maximumDtiPercent}%.`,
+      evidence: { originalDti, limit: creditPolicy.maximumDtiPercent, totalMonthlyDebt: currentMonthlyDebt + originalEmi, validIncome },
+      ruleIds: [creditPolicy.ruleIds.dtiExceeded],
+      citations: ["Rule tín dụng demo 2026.07.18 - ngưỡng DTI stress chưa được SHB phê duyệt"]
     });
   }
 
@@ -205,8 +200,8 @@ export const evaluateCreditRules = (
       blocksAt: "APPROVAL",
       finding: `Hồ sơ gốc bị từ chối. Đã tái cấu trúc thành công: Giảm khoản vay xuống ${restructureOutcome.loanAmount.toLocaleString()} VND (${restructureOutcome.ltv.toFixed(1)}% LTV), kéo dài thời hạn lên ${restructureOutcome.tenureYears} năm, cơ cấu nợ ô tô và hạ hạn mức thẻ tín dụng. Tỷ lệ DTI stress mới là ${restructureOutcome.dti}%.`,
       evidence: { restructureScenario },
-      ruleIds: ["CREDIT_RESTRUCTURE_PASS"],
-      citations: ["Quy chế tín dụng nội bộ SHB - Phụ lục Cấu trúc nợ"]
+      ruleIds: [creditPolicy.ruleIds.restructurePassed],
+      citations: ["Rule tái cấu trúc demo 2026.07.18 - cần chủ sở hữu chính sách SHB phê duyệt"]
     });
   } else {
     findings.push({
@@ -217,8 +212,8 @@ export const evaluateCreditRules = (
       blocksAt: "APPROVAL",
       finding: `Không thể tái cấu trúc khoản vay. Tỷ lệ DTI stress tối ưu vẫn vượt quá ngưỡng cho phép của ngân hàng.`,
       evidence: { restructureScenario },
-      ruleIds: ["CREDIT_RESTRUCTURE_FAILED"],
-      citations: ["Chính sách kiểm soát rủi ro tín dụng SHB"]
+      ruleIds: [creditPolicy.ruleIds.restructureFailed],
+      citations: ["Rule rủi ro demo 2026.07.18 - cần chủ sở hữu chính sách SHB phê duyệt"]
     });
   }
 

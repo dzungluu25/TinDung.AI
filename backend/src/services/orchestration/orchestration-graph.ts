@@ -12,12 +12,12 @@ import { recordAuditEvent } from "../governance/audit-log.service";
 import { pgPool } from "../../config/pg";
 import { loadRetailCase } from "../data/retail-case-loader";
 import { RetailCase } from "../../types/case.types";
-import { ApprovedLoanTerms, ApprovalMode, BusinessValueProjection } from "../../types/product.types";
+import { ApprovedLoanTerms, ApprovalMode, BusinessValueProjection, DecisionConfidence } from "../../types/product.types";
 import { CreditAssessmentResult } from "../rules/credit-rule-engine";
 import { evaluateAutoApprovalPolicy } from "../rules/auto-approval-policy.service";
 import { projectBusinessValue } from "../business/profitability-engine";
-
-const FAST_LANE_MAX_LOAN_AMOUNT = 500_000_000; // 500M VND
+import { decisionPolicy, productCatalog } from "../../config/policy";
+import { assessDecisionConfidence } from "../governance/decision-confidence.service";
 
 /**
  * Fast-lane eligibility is a conservative "clean file" rule: small ticket size,
@@ -27,12 +27,13 @@ const FAST_LANE_MAX_LOAN_AMOUNT = 500_000_000; // 500M VND
  * Complex lane instead.
  */
 const classifyRiskTier = (retailCase: RetailCase): "FAST" | "COMPLEX" => {
+  const policy = decisionPolicy.fastLane;
   const isFastLaneEligible =
-    retailCase.requestedLoan.amount <= FAST_LANE_MAX_LOAN_AMOUNT &&
-    retailCase.property.status === "completed" &&
-    retailCase.demographic.maritalStatus === "single" &&
-    retailCase.currentDebts.length === 0 &&
-    retailCase.incomeSources.every(source => source.type === "salary");
+    retailCase.requestedLoan.amount <= policy.maximumLoanAmountVnd &&
+    retailCase.property.status === policy.requiredPropertyStatus &&
+    retailCase.demographic.maritalStatus === policy.requiredMaritalStatus &&
+    (!policy.requireNoExistingDebt || retailCase.currentDebts.length === 0) &&
+    retailCase.incomeSources.every(source => policy.allowedIncomeTypes.includes(source.type));
 
   return isFastLaneEligible ? "FAST" : "COMPLEX";
 };
@@ -80,6 +81,7 @@ export const OrchestrationAnnotation = Annotation.Root({
   approvalMode: Annotation<ApprovalMode>({ default: () => "HYBRID_APPROVAL", reducer: (_prev, next) => next }),
   approvedTerms: Annotation<ApprovedLoanTerms | undefined>({ default: () => undefined, reducer: (_prev, next) => next }),
   businessValue: Annotation<BusinessValueProjection | undefined>({ default: () => undefined, reducer: (_prev, next) => next }),
+  confidence: Annotation<DecisionConfidence | undefined>({ default: () => undefined, reducer: (_prev, next) => next }),
 });
 
 export type OrchestrationState = typeof OrchestrationAnnotation.State;
@@ -118,11 +120,11 @@ const classifyNode = async (state: OrchestrationState): Promise<Partial<Orchestr
       agent: "planner",
       task: "Analyze prompt and determine workflow",
       status: "completed",
-      summary: `Nhận diện yêu cầu vay của khách hàng ${state.customerName}. Phân loại luồng xử lý rủi ro: [${riskTier}]. Khởi tạo quy trình nghiệp vụ phù hợp.`,
+      summary: `Nhận diện yêu cầu vay của khách hàng. Phân loại luồng xử lý rủi ro: [${riskTier}]. Khởi tạo quy trình nghiệp vụ phù hợp.`,
       toolCalls: [
         {
           toolName: "detectRiskTier",
-          input: { prompt: state.prompt, caseId: state.caseId },
+          input: { promptLength: state.prompt.length, caseId: state.caseId },
           output: { riskTier, caseId: state.caseId },
           status: "success",
         },
@@ -151,20 +153,27 @@ const creditNode = async (state: OrchestrationState): Promise<Partial<Orchestrat
 const getCreditAssessment = (state: OrchestrationState): CreditAssessmentResult | undefined =>
   state.creditTrace?.toolCalls.find(call => call.toolName === "evaluateCreditRules")?.output as unknown as CreditAssessmentResult | undefined;
 
-const getOfferRate = (state: OrchestrationState): number => {
+const getOfferRate = (state: OrchestrationState): number | undefined => {
   const offer = state.productTrace?.toolCalls.find(call => call.toolName === "buildPricingOffer")?.output as { appliedRate?: number } | undefined;
-  return offer?.appliedRate ?? 0.083;
+  return typeof offer?.appliedRate === "number" && Number.isFinite(offer.appliedRate) ? offer.appliedRate : undefined;
 };
 
 const autoPolicyNode = async (state: OrchestrationState): Promise<Partial<OrchestrationState>> => {
   const retailCase = await loadRetailCase(state.caseId);
   const credit = getCreditAssessment(state);
-  if (!retailCase || !credit || state.creditTrace?.status !== "completed") {
-    return { finalDecision: "HUMAN_ESCALATION", approvalMode: "HYBRID_APPROVAL", requiredFixes: ["Auto-policy không đủ dữ liệu tin cậy; chuyển thẩm định thủ công."] };
+  const offerRate = getOfferRate(state);
+  const confidence = assessDecisionConfidence("FAST", [state.profileTrace, state.productTrace, state.creditTrace]);
+  if (!retailCase || !credit || offerRate === undefined || state.creditTrace?.status !== "completed" || confidence.status !== "VERIFIED") {
+    return {
+      finalDecision: "HUMAN_ESCALATION",
+      approvalMode: "HYBRID_APPROVAL",
+      confidence,
+      requiredFixes: ["Auto-policy không đủ dữ liệu tin cậy; chuyển thẩm định thủ công.", ...confidence.reasons],
+    };
   }
 
   const hasProductConflict = state.productTrace?.findings?.some(finding =>
-    finding.ruleIds?.includes("PRODUCT_PRICING_INSURANCE_TYING") && finding.evidence?.insuranceTyingApplied
+    finding.ruleIds?.includes(productCatalog.ruleIds.insuranceTying) && finding.evidence?.insuranceTyingApplied
   ) ?? false;
   const policy = evaluateAutoApprovalPolicy(retailCase, credit, hasProductConflict);
   if (!policy.eligible) {
@@ -174,11 +183,11 @@ const autoPolicyNode = async (state: OrchestrationState): Promise<Partial<Orches
   const approvedTerms: ApprovedLoanTerms = {
     loanAmount: credit.originalScenario.loanAmount,
     tenureYears: credit.originalScenario.tenureYears,
-    annualRate: getOfferRate(state),
+    annualRate: offerRate,
     approvalMode: "AUTO_APPROVAL",
     source: "ORIGINAL_REQUEST",
   };
-  return { finalDecision: "FAST_PASS", approvalMode: "AUTO_APPROVAL", approvedTerms, businessValue: projectBusinessValue(approvedTerms) };
+  return { finalDecision: "FAST_PASS", approvalMode: "AUTO_APPROVAL", approvedTerms, businessValue: projectBusinessValue(approvedTerms), confidence };
 };
 
 const legalNode = async (state: OrchestrationState): Promise<Partial<OrchestrationState>> => {
@@ -230,12 +239,16 @@ const riskNode = async (state: OrchestrationState): Promise<Partial<Orchestratio
   const mandatoryFailure = [state.profileTrace, state.productTrace, state.creditTrace, state.legalTrace]
     .find(trace => !trace || trace.status === "failed");
   if (mandatoryFailure) {
+    const confidence = assessDecisionConfidence("COMPLEX", [state.profileTrace, state.productTrace, state.creditTrace, state.legalTrace]);
     return {
       finalDecision: "HUMAN_ESCALATION",
       approvalMode: "HYBRID_APPROVAL",
-      requiredFixes: [`Mandatory agent failed: ${mandatoryFailure?.agent ?? "unknown"}. Hệ thống fail-closed.`],
+      confidence,
+      requiredFixes: [`Mandatory agent failed: ${mandatoryFailure?.agent ?? "unknown"}. Hệ thống fail-closed.`, ...confidence.reasons],
     };
   }
+
+  const confidence = assessDecisionConfidence("COMPLEX", [state.profileTrace, state.productTrace, state.creditTrace, state.legalTrace]);
 
   const matrixOutput = decideNextAction(
     state.creditTrace?.findings || [],
@@ -268,24 +281,31 @@ const riskNode = async (state: OrchestrationState): Promise<Partial<Orchestratio
 
   const credit = getCreditAssessment(state);
   const scenario = credit?.restructureScenario?.status === "PASS" ? credit.restructureScenario : credit?.originalScenario;
-  const approvedTerms: ApprovedLoanTerms | undefined = scenario ? {
+  const offerRate = getOfferRate(state);
+  const approvedTerms: ApprovedLoanTerms | undefined = scenario && offerRate !== undefined ? {
     loanAmount: scenario.loanAmount,
     tenureYears: scenario.tenureYears,
-    annualRate: getOfferRate(state),
+    annualRate: offerRate,
     approvalMode: "HYBRID_APPROVAL",
     source: credit?.restructureScenario?.status === "PASS" ? "RESTRUCTURED_PROPOSAL" : "ORIGINAL_REQUEST",
   } : undefined;
   const businessValue = approvedTerms ? projectBusinessValue(approvedTerms) : undefined;
   const profitabilityBlocked = businessValue && !businessValue.profitable && (matrixOutput.finalDecision === "PASS" || matrixOutput.finalDecision === "CONDITIONAL_PASS");
+  const mustAbstain = confidence.status !== "VERIFIED" || offerRate === undefined;
 
   return {
     riskTrace,
-    finalDecision: profitabilityBlocked ? "HUMAN_ESCALATION" : matrixOutput.finalDecision,
+    finalDecision: mustAbstain || profitabilityBlocked ? "HUMAN_ESCALATION" : matrixOutput.finalDecision,
     approvalMode: "HYBRID_APPROVAL",
-    approvedTerms,
-    businessValue,
+    approvedTerms: mustAbstain ? undefined : approvedTerms,
+    businessValue: mustAbstain ? undefined : businessValue,
+    confidence,
     conditions: matrixOutput.conditions,
-    requiredFixes: profitabilityBlocked ? [...matrixOutput.requiredFixes, "Đề xuất chưa đạt profitability floor/RAROC tối thiểu."] : matrixOutput.requiredFixes,
+    requiredFixes: mustAbstain
+      ? [...matrixOutput.requiredFixes, ...(offerRate === undefined ? ["MISSING_VERIFIED_OFFER_RATE"] : []), ...confidence.reasons]
+      : profitabilityBlocked
+        ? [...matrixOutput.requiredFixes, "Đề xuất chưa đạt profitability floor/RAROC tối thiểu."]
+        : matrixOutput.requiredFixes,
     modelCallsCount: 1,
   };
 };
@@ -304,7 +324,7 @@ const operationsNode = async (state: OrchestrationState): Promise<Partial<Orches
 };
 
 const hasInsuranceTyingViolation = (state: OrchestrationState): boolean =>
-  state.legalTrace?.findings?.some(f => f.ruleIds.includes("LEGAL_INSURANCE_TYING_DETECTED")) ?? false;
+  state.legalTrace?.findings?.some(f => f.ruleIds.includes(productCatalog.ruleIds.legalInsuranceTying)) ?? false;
 
 const builder = new StateGraph(OrchestrationAnnotation)
   .addNode("classify", classifyNode)

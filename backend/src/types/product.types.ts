@@ -35,3 +35,11 @@ export interface BusinessValueProjection {
   profitable: boolean;
   assumptions: string[];
 }
+
+export interface DecisionConfidence {
+  status: "VERIFIED" | "NEEDS_REVIEW";
+  score: number;
+  evidenceCoverage: number;
+  reasons: string[];
+  policyVersions: Record<string, string>;
+}

@@ -1,6 +1,22 @@
-version: '3.8'
-
 services:
+  credit-risk-model:
+    profiles: ["ml"]
+    build:
+      context: ./ml-credit-service
+    ports:
+      - "8000:8000"
+    environment:
+      - CREDIT_MODEL_DIR=/models/champion
+    volumes:
+      - ./ml-credit-service/artifacts/champion:/models/champion:ro
+    networks:
+      - vaic-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
   redis:
     image: redis:7-alpine
     container_name: vaic_redis
@@ -47,7 +63,8 @@ services:
       - ./backend:/app
       - /app/node_modules
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
       - NODE_ENV=development
     depends_on:
@@ -67,7 +84,8 @@ services:
       - ./frontend:/app
       - /app/node_modules
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
       - VITE_API_URL=http://localhost:3000
     depends_on:

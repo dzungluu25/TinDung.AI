@@ -1,5 +1,6 @@
 import { getFptMarketplaceClient } from "../../config/fpt-marketplace";
 import { config } from "../../config/env";
+import legalLlmContractJson from "../../policy/legal-llm-contract.json";
 import { RetailCase, ConsentRegistry } from "../../types/case.types";
 import { DecisionEnvelope } from "../../types/agent.types";
 import { queryProjectGuarantee, queryRegulationClause } from "./policy-rag.service";
@@ -7,6 +8,17 @@ import { ToolCallTrace } from "../../types/trace.types";
 import { ChatCompletionTool, ChatCompletionMessageParam, ChatCompletionToolMessageParam } from "openai/resources/chat/completions";
 
 const MAX_TOOL_ITERATIONS = 6;
+
+interface LegalLlmContract {
+  contractId: string;
+  version: string;
+  allowedClauseIds: string[];
+  allowedRuleIds: string[];
+  systemPrompt: string;
+}
+
+const LEGAL_LLM_CONTRACT = legalLlmContractJson as LegalLlmContract;
+const ALLOWED_LEGAL_RULE_IDS = new Set(LEGAL_LLM_CONTRACT.allowedRuleIds);
 
 const DECISION_ENVELOPE_ITEM_SCHEMA = {
   type: "object",
@@ -28,8 +40,8 @@ const DECISION_ENVELOPE_ITEM_SCHEMA = {
       required: ["summary"],
       additionalProperties: false,
     },
-    ruleIds: { type: "array", items: { type: "string" } },
-    citations: { type: "array", items: { type: "string" } },
+    ruleIds: { type: "array", items: { type: "string", enum: LEGAL_LLM_CONTRACT.allowedRuleIds } },
+    citations: { type: "array", items: { type: "string" }, maxItems: 0 },
     requiredFix: { type: ["string", "null"] },
   },
   required: [
@@ -57,6 +69,7 @@ const TOOLS: ChatCompletionTool[] = [
         properties: {
           clauseId: {
             type: "string",
+            enum: LEGAL_LLM_CONTRACT.allowedClauseIds,
             description: "ID điều khoản, ví dụ: Clause-Insurance-Tying, Clause-Marital-Property, Clause-Future-Property, Clause-Loan-Purpose, Clause-DTI-Limit, Clause-LTV-Limit, Clause-Tenure-Limit, Clause-CIC-History",
           },
         },
@@ -95,31 +108,8 @@ const TOOLS: ChatCompletionTool[] = [
   }
 ];
 
-const SYSTEM_PROMPT = `Bạn là Legal & Compliance Agent của Ngân hàng SHB, chịu trách nhiệm soát xét tuân thủ pháp lý cho hồ sơ tín dụng bán lẻ trước khi phê duyệt.
-
-QUY TẮC BẮT BUỘC:
-- Mọi trích dẫn pháp lý (citations) và mọi finding phải dựa trên kết quả trả về từ tool call thực tế — TUYỆT ĐỐI không tự bịa đặt nội dung điều khoản hoặc mã điều khoản không tồn tại trong hệ thống.
-- Nếu tool trả về không tìm thấy (found: false), phải nêu rõ điều đó trong finding thay vì suy diễn nội dung.
-- Chỉ được gọi get_regulation_clause với một trong các clauseId sau: "Clause-Insurance-Tying", "Clause-Marital-Property", "Clause-Future-Property", "Clause-Loan-Purpose", "Clause-DTI-Limit", "Clause-LTV-Limit", "Clause-Tenure-Limit", "Clause-CIC-History".
-- BẠN BẮT BUỘC PHẢI GỌI tool "submit_findings" để nộp kết quả soát xét pháp lý (findings) cuối cùng. ĐỪNG trả về finding dưới dạng văn bản bình thường, mà hãy truyền vào tham số của hàm submit_findings.
-
-CÁC TRƯỜNG HỢP CẦN KIỂM TRA (chỉ áp dụng khi dữ liệu hồ sơ khớp điều kiện — không tạo finding cho trường hợp không áp dụng):
-
-1. Nếu hasInsuranceTyingSignal = true: PHẢI gọi get_regulation_clause("Clause-Insurance-Tying") trước, sau đó tạo một finding với status="VIOLATION", severity="BLOCKER", blocksAt="APPROVAL", ruleIds=["LEGAL_INSURANCE_TYING_DETECTED"], requiredFix mô tả yêu cầu loại bỏ điều kiện mua bảo hiểm và định giá lại, và citations gồm mô tả điều khoản lấy từ tool cộng thêm "Luật Các tổ chức tín dụng 2024 - Điều 10".
-
-2. Nếu maritalStatus = "married": PHẢI gọi get_regulation_clause("Clause-Marital-Property") trước.
-   - Nếu trong yêu cầu (prompt) hoặc thông tin hồ sơ cho thấy thiếu chữ ký đồng thuận của vợ/chồng (ví dụ: chưa có đủ chữ ký, thiếu chữ ký vợ/chồng, tài sản chung chưa đủ chữ ký): tạo finding với status="FAIL", severity="BLOCKER", blocksAt="CONTRACT_SIGNING", ruleIds=["LEGAL_MARITAL_SIGNATURE_MISSING"], requiredFix "Cần bổ sung chữ ký đồng thuận của vợ/chồng vào hợp đồng thế chấp", citations gồm "Luật Hôn nhân và Gia đình Việt Nam 2014 - Điều 35".
-   - Ngược lại (nếu đã có đầy đủ chữ ký hoặc không có cảnh báo thiếu): tạo finding với status="CONDITIONAL_PASS", severity="CONDITION", blocksAt="CONTRACT_SIGNING", ruleIds=["LEGAL_MARITAL_PROPERTY_WARNING"], requiredFix=null, citations gồm "Luật Hôn nhân và Gia đình Việt Nam 2014 - Điều 35".
-
-3. Nếu propertyStatus = "future_project" và có projectCode: PHẢI gọi get_regulation_clause("Clause-Future-Property") VÀ get_project_guarantee_status(projectCode).
-   - Nếu dự án không được bảo lãnh (isGuaranteedBySHB=false hoặc found=false): tạo finding với status="FAIL", severity="BLOCKER", blocksAt="DISBURSEMENT", ruleIds=["LEGAL_PROJECT_NOT_REGISTERED"], requiredFix mô tả cần chuyển sang tài sản thế chấp khác, citations gồm "Luật Kinh doanh Bất động sản 2023 - Điều 26".
-   - Nếu được bảo lãnh: tạo finding với status="CONDITIONAL_PASS", severity="CONDITION", blocksAt="DISBURSEMENT", ruleIds=["LEGAL_FUTURE_PROPERTY_GUARANTEE"], requiredFix=null, citations gồm "Luật Nhà ở 2023 - Điều 129".
-
-4. Kiểm tra sự chấp thuận thông tin (Consent): Nếu consent.credit_check = false hoặc consent.tax_income_check = false: tạo finding với status="BLOCKED", severity="BLOCKER", blocksAt="EXTERNAL_DATA_CALL", ruleIds=["LEGAL_CONSENT_MISSING"], requiredFix "Yêu cầu khách hàng bổ sung ký tên vào bản thỏa thuận đồng thuận (Consent Registry)", citations gồm "Nghị định 13/2023/NĐ-CP về bảo vệ dữ liệu cá nhân", "Quy định bảo mật SHB".
-
-5. Nếu không trường hợp nào áp dụng, trả về findings rỗng ([]).
-
-Mỗi finding phải có decisionId dạng "dec-legal-<mô-tả-ngắn>-<vài số ngẫu nhiên>".`;
+// Canonical, versioned contract shared with the fine-tuning dataset builder.
+const SYSTEM_PROMPT = LEGAL_LLM_CONTRACT.systemPrompt;
 
 interface LegalReasoningInput {
   maritalStatus: RetailCase["demographic"]["maritalStatus"];
@@ -127,13 +117,58 @@ interface LegalReasoningInput {
   propertyStatus: RetailCase["property"]["status"];
   projectCode: string | null;
   consent: ConsentRegistry;
-  prompt: string;
+  maritalSignatureWarning: boolean;
 }
 
 export interface LegalReasoningResult {
   findings: DecisionEnvelope[];
   toolCalls: ToolCallTrace[];
 }
+
+const FINDING_STATUSES = new Set(["PASS", "CONDITIONAL_PASS", "VIOLATION", "BLOCKED", "FAIL"]);
+const FINDING_SEVERITIES = new Set(["INFO", "CONDITION", "WARNING", "BLOCKER"]);
+const FINDING_GATES = new Set(["APPROVAL", "CONTRACT_SIGNING", "DISBURSEMENT", "EXTERNAL_DATA_CALL", "NONE"]);
+
+const validateSubmittedFindings = (value: unknown): DecisionEnvelope[] => {
+  if (!Array.isArray(value)) throw new Error("Legal reasoning returned findings in an invalid format.");
+
+  return value.map((raw, index) => {
+    if (!raw || typeof raw !== "object") throw new Error(`Legal finding ${index} is not an object.`);
+    const finding = raw as Record<string, unknown>;
+    const evidence = finding.evidence;
+    if (typeof finding.decisionId !== "string" || !finding.decisionId.trim()) throw new Error(`Legal finding ${index} has no decisionId.`);
+    if (!FINDING_STATUSES.has(String(finding.status))) throw new Error(`Legal finding ${index} has an invalid status.`);
+    if (!FINDING_SEVERITIES.has(String(finding.severity))) throw new Error(`Legal finding ${index} has an invalid severity.`);
+    if (!FINDING_GATES.has(String(finding.blocksAt))) throw new Error(`Legal finding ${index} has an invalid gate.`);
+    if (typeof finding.finding !== "string" || !finding.finding.trim()) throw new Error(`Legal finding ${index} has no explanation.`);
+    if (!evidence || typeof evidence !== "object" || typeof (evidence as Record<string, unknown>).summary !== "string") {
+      throw new Error(`Legal finding ${index} has no structured evidence.`);
+    }
+    if (!Array.isArray(finding.ruleIds) || !finding.ruleIds.length || finding.ruleIds.some(rule => typeof rule !== "string")) {
+      throw new Error(`Legal finding ${index} has no valid rule ID.`);
+    }
+    if (finding.ruleIds.some(rule => !ALLOWED_LEGAL_RULE_IDS.has(String(rule)))) {
+      throw new Error(`Legal finding ${index} contains a rule outside the approved contract.`);
+    }
+    if (!Array.isArray(finding.citations) || finding.citations.some(citation => typeof citation !== "string")) {
+      throw new Error(`Legal finding ${index} has an invalid citations field.`);
+    }
+    // Model-provided citations are untrusted. The governance layer deterministically
+    // rebuilds them from citation-catalog.json after this function returns.
+    return {
+      decisionId: finding.decisionId as string,
+      agent: "legal",
+      status: finding.status as DecisionEnvelope["status"],
+      severity: finding.severity as DecisionEnvelope["severity"],
+      blocksAt: finding.blocksAt as DecisionEnvelope["blocksAt"],
+      finding: finding.finding as string,
+      evidence: evidence as Record<string, unknown>,
+      ruleIds: finding.ruleIds as string[],
+      citations: [],
+      requiredFix: typeof finding.requiredFix === "string" ? finding.requiredFix : undefined,
+    };
+  });
+};
 
 const executeTool = async (
   name: string,
@@ -171,13 +206,16 @@ export const runLegalComplianceReasoning = async (
   const client = getFptMarketplaceClient();
   const toolCallLog: ToolCallTrace[] = [];
 
+  // Data minimisation: the model never receives the raw user prompt. Only the narrow,
+  // deterministic legal signal needed for this review crosses the model boundary.
+  const maritalSignatureWarning = /(thiếu|chưa\s+có|chưa\s+đủ).{0,40}(chữ\s*ký|ký\s*tên).{0,40}(vợ|chồng)|tài\s*sản\s*chung.{0,40}(thiếu|chưa\s+đủ).{0,20}(chữ\s*ký|ký\s*tên)/iu.test(prompt);
   const reasoningInput: LegalReasoningInput = {
     maritalStatus: retailCase.demographic.maritalStatus,
     hasInsuranceTyingSignal,
     propertyStatus: retailCase.property.status,
     projectCode: retailCase.property.projectCode ?? null,
     consent: retailCase.consent,
-    prompt: prompt
+    maritalSignatureWarning
   };
 
   const messages: ChatCompletionMessageParam[] = [
@@ -207,9 +245,8 @@ export const runLegalComplianceReasoning = async (
         if (toolCall.type !== "function") continue;
 
         if (toolCall.function.name === "submit_findings") {
-          // The model has submitted the final structured output
-          const args = JSON.parse(toolCall.function.arguments);
-          return { findings: args.findings, toolCalls: toolCallLog };
+          const args = JSON.parse(toolCall.function.arguments) as { findings?: unknown };
+          return { findings: validateSubmittedFindings(args.findings), toolCalls: toolCallLog };
         }
 
         const input = JSON.parse(toolCall.function.arguments);

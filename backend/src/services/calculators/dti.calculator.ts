@@ -1,4 +1,5 @@
 import { IncomeSource, Debt } from "../../types/case.types";
+import { decisionPolicy } from "../../config/policy";
 
 /**
  * Calculates valid monthly income after applying policy haircuts:
@@ -8,12 +9,7 @@ import { IncomeSource, Debt } from "../../types/case.types";
  */
 export const calculateIncomeAfterHaircut = (incomeSources: IncomeSource[]): number => {
   return incomeSources.reduce((total, source) => {
-    let coefficient = 1.0;
-    if (source.type === "freelance") {
-      coefficient = 0.5;
-    } else if (source.type === "rental") {
-      coefficient = 0.7; // 30% haircut means keeping 70%
-    }
+    const coefficient = decisionPolicy.credit.incomeRecognitionFactors[source.type];
     return total + Math.round(source.amount * coefficient);
   }, 0);
 };
@@ -26,7 +22,7 @@ export const calculateIncomeAfterHaircut = (incomeSources: IncomeSource[]): numb
 export const calculateCurrentMonthlyDebt = (debts: Debt[]): number => {
   return debts.reduce((total, debt) => {
     if (debt.type === "credit_card" && debt.limit && debt.limit > 0) {
-      return total + Math.round(debt.limit * 0.05); // 5% of limit
+      return total + Math.round(debt.limit * decisionPolicy.credit.creditCardMonthlyObligationRate);
     }
     return total + debt.monthlyOwed;
   }, 0);

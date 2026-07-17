@@ -124,15 +124,29 @@ export const seedDatabases = async () => {
       // Create Regulations & Clauses nodes
       await session.run(`
         CREATE (reg1:Regulation {
-          regId: "SBV-Circular-39",
-          title: "Thông tư 39/2016/TT-NHNN",
-          issuedBy: "Ngân hàng Nhà nước Việt Nam",
-          effectiveDate: "2017-03-15"
+          regId: "VN-CREDIT-INSTITUTIONS-2024",
+          title: "Luật Các tổ chức tín dụng 32/2024/QH15",
+          issuedBy: "Quốc hội",
+          effectiveDate: "2024-07-01"
+        })
+
+        CREATE (regMarriage:Regulation {
+          regId: "VN-MARRIAGE-FAMILY-2014",
+          title: "Luật Hôn nhân và gia đình 52/2014/QH13",
+          issuedBy: "Quốc hội",
+          effectiveDate: "2015-01-01"
+        })
+
+        CREATE (regRealEstate:Regulation {
+          regId: "VN-REAL-ESTATE-2023",
+          title: "Luật Kinh doanh bất động sản 29/2023/QH15",
+          issuedBy: "Quốc hội",
+          effectiveDate: "2024-08-01"
         })
         
         CREATE (c1:Clause {
           clauseId: "Clause-Insurance-Tying",
-          code: "SBV-39-CH-I",
+          code: "32/2024/QH15-15.5",
           summary: "Cấm ép bán kèm bảo hiểm",
           description: "Nghiêm cấm tổ chức tín dụng ràng buộc điều kiện mua bảo hiểm nhân thọ liên kết để giải ngân hoặc ưu đãi lãi suất vay của khách hàng.",
           vetoPower: true
@@ -140,7 +154,7 @@ export const seedDatabases = async () => {
         
         CREATE (c2:Clause {
           clauseId: "Clause-Marital-Property",
-          code: "SBV-39-CH-II",
+          code: "52/2014/QH13-35",
           summary: "Tài sản hôn nhân chung",
           description: "Đối với tài sản thế chấp hình thành trong thời kỳ hôn nhân, hợp đồng thế chấp phải có chữ ký của cả hai vợ chồng.",
           vetoPower: false
@@ -148,29 +162,28 @@ export const seedDatabases = async () => {
         
         CREATE (c3:Clause {
           clauseId: "Clause-Future-Property",
-          code: "SBV-39-CH-III",
+          code: "29/2023/QH15-26",
           summary: "Bảo lãnh dự án hình thành tương lai",
-          description: "Tài sản mua hình thành trong tương lai yêu cầu chủ đầu tư dự án phải được ngân hàng tài trợ cấp thư bảo lãnh bán nhà hợp lệ.",
+          description: "Trước khi bán nhà ở hình thành trong tương lai, chủ đầu tư phải được ngân hàng thương mại đủ điều kiện chấp thuận cấp bảo lãnh nghĩa vụ tài chính, trừ trường hợp khách hàng lựa chọn không có bảo lãnh theo Điều 26 Luật Kinh doanh bất động sản 2023.",
           vetoPower: true
         })
 
         CREATE (c4:Clause {
           clauseId: "Clause-Loan-Purpose",
-          code: "SBV-39-CH-IV",
+          code: "DEMO-INTERNAL-LOAN-PURPOSE",
           summary: "Kiểm tra tính hợp pháp của mục đích vay",
-          description: "Khách hàng vay vốn phải cam kết sử dụng tiền vay đúng mục đích đăng ký, không sử dụng cho các hoạt động bị pháp luật cấm như rửa tiền, tài trợ khủng bố hoặc đầu tư tài chính trái phép.",
+          description: "Rule demo nội bộ: mục đích vay cần được xác minh và không thuộc hoạt động bị pháp luật cấm. Cần Pháp chế ánh xạ văn bản cụ thể trước production.",
           vetoPower: true
         })
 
         CREATE (reg1)-[:HAS_CLAUSE]->(c1)
-        CREATE (reg1)-[:HAS_CLAUSE]->(c2)
-        CREATE (reg1)-[:HAS_CLAUSE]->(c3)
-        CREATE (reg1)-[:HAS_CLAUSE]->(c4)
+        CREATE (regMarriage)-[:HAS_CLAUSE]->(c2)
+        CREATE (regRealEstate)-[:HAS_CLAUSE]->(c3)
 
         CREATE (reg2:Regulation {
-          regId: "SHB-Retail-Credit-Policy-2026",
-          title: "Quy chế cấp tín dụng bán lẻ SHB 2026",
-          issuedBy: "Ngân hàng TMCP Sài Gòn - Hà Nội (SHB)",
+          regId: "DEMO-Retail-Credit-Policy-2026",
+          title: "Quy tắc tín dụng bán lẻ dùng trong bản demo - chưa được SHB phê duyệt",
+          issuedBy: "Nhóm dự án VAIC",
           effectiveDate: "2026-01-01"
         })
 
@@ -201,19 +214,20 @@ export const seedDatabases = async () => {
         CREATE (reg2)-[:HAS_CLAUSE]->(c5)
         CREATE (reg2)-[:HAS_CLAUSE]->(c6)
         CREATE (reg2)-[:HAS_CLAUSE]->(c7)
+        CREATE (reg2)-[:HAS_CLAUSE]->(c4)
 
         CREATE (reg3:Regulation {
-          regId: "SBV-Circular-11-Debt-Classification",
-          title: "Thông tư 11/2021/TT-NHNN về phân loại nợ",
-          issuedBy: "Ngân hàng Nhà nước Việt Nam",
-          effectiveDate: "2021-12-24"
+          regId: "DEMO-CIC-HISTORY-POLICY",
+          title: "Rule lịch sử CIC dùng trong bản demo - cần chủ sở hữu chính sách phê duyệt",
+          issuedBy: "Nhóm dự án VAIC",
+          effectiveDate: "2026-01-01"
         })
 
         CREATE (c8:Clause {
           clauseId: "Clause-CIC-History",
-          code: "SBV-11-CH-CIC",
+          code: "DEMO-INTERNAL-CIC",
           summary: "Kiểm tra lịch sử tín dụng CIC",
-          description: "Khách hàng không được có nợ xấu thuộc Nhóm 3 (Nợ dưới tiêu chuẩn) đến Nhóm 5 (Nợ có khả năng mất vốn) tại bất kỳ tổ chức tín dụng nào trong vòng 24 tháng gần nhất.",
+          description: "Rule demo nội bộ về lịch sử nợ xấu. Thời gian quan sát và tác động phán quyết phải lấy từ chính sách tín dụng đã được phê duyệt trước production.",
           vetoPower: true
         })
 

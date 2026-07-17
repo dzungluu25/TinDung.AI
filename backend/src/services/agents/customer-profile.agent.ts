@@ -24,7 +24,7 @@ export const runCustomerProfileAgent = async (
   }
 
   // Normalization logic
-  const summary = `Đã tải thành công hồ sơ khách hàng ${retailCase.demographic.name} (${retailCase.demographic.age} tuổi, ${retailCase.demographic.maritalStatus === "married" ? "Đã kết hôn" : "Độc thân"}). Đã chuẩn hóa nguồn thu nhập (${retailCase.incomeSources.length} nguồn) và nghĩa vụ nợ (${retailCase.currentDebts.length} khoản nợ).`;
+  const summary = `Đã tải thành công hồ sơ khách hàng (${retailCase.demographic.age} tuổi, ${retailCase.demographic.maritalStatus === "married" ? "Đã kết hôn" : "Độc thân"}). Đã chuẩn hóa nguồn thu nhập (${retailCase.incomeSources.length} nguồn) và nghĩa vụ nợ (${retailCase.currentDebts.length} khoản nợ).`;
 
   return {
     id: `trace-profile-${Date.now()}`,

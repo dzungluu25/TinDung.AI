@@ -6,8 +6,9 @@ import { maskPiiPayload } from "../governance/pii-masking.service";
 import { recordAuditEvent, getAuditEventsByRun } from "../governance/audit-log.service";
 import { saveOrchestrationRun } from "./trace.service";
 import { orchestrationGraph, assembleTraces, OrchestrationState } from "./orchestration-graph";
-import { getFptMarketplaceClient } from "../../config/fpt-marketplace";
-import { config } from "../../config/env";
+import { requireDemoInput } from "./input-router.service";
+import { buildAnswerTransparency } from "../governance/citation-governance.service";
+import { decisionPolicy } from "../../config/policy";
 
 // Order matters: within the self-correction chunk, selfCorrectionTrace, productTrace and
 // legalTrace all change simultaneously (one graph step) — scanning selfCorrection before
@@ -24,53 +25,6 @@ const TRACE_KEYS = [
   "opsTrace",
 ] as const;
 
-// Simple routing classifier — determines which seeded case a free-text prompt refers to.
-// Runs before the graph so a "case not found" response can short-circuit without
-// creating any trace at all, matching the previous behavior.
-const detectCaseIdFromPrompt = async (prompt: string): Promise<string> => {
-  const p = prompt.toLowerCase();
-  if (p.includes("hacker") || p.includes("inject") || p.includes("tấn công") || p.includes("ignore all previous instructions")) {
-    return "case-prompt-injection";
-  }
-
-  const client = getFptMarketplaceClient();
-  try {
-    const response = await client.chat.completions.create({
-      model: config.fptLegalModel,
-      messages: [
-        {
-          role: "system",
-          content: `Bạn là AI Router chịu trách nhiệm phân tích yêu cầu (prompt) của người dùng và phân loại khớp với một trong các hồ sơ mẫu dưới đây:
-
-- "case-fast-clean": Hồ sơ sạch, duyệt nhanh của chị Bình (500 triệu, single, LTV thấp, không nợ). Ngoài ra còn khớp với trường hợp khách hàng có lịch sử nợ xấu cũ đã tất toán trên 5 năm trước.
-- "case-complex-main": Hồ sơ vay phức tạp của anh Nguyễn Văn Hùng mua nhà Vinhomes Ocean Park 3 (2.8 tỷ, đã kết hôn).
-- "case-missing-spouse-sig": Hồ sơ của anh Hải (đã kết hôn, thiếu chữ ký vợ). Hoặc trường hợp nợ nhóm 2 cần giải trình, thế chấp sổ đỏ của bạn bè (bảo lãnh phi nhân thân).
-- "case-missing-guarantee": Hồ sơ của anh Tuấn (căn hộ Galaxy Complex chưa có bảo lãnh). Hoặc dự án căn hộ chưa đủ điều kiện mở bán, mục đích đảo nợ thẻ tín dụng đen, đầu tư tiền ảo.
-- "case-missing-consent": Hồ sơ thiếu đồng ý tra cứu thông tin tín dụng CIC/Thuế của anh Nam.
-- "case-dti-fail": Hồ sơ bị từ chối DTI của anh Cường. Hoặc các trường hợp không đủ điều kiện DTI/LTV/tuổi tác (như 72 tuổi), vay xe ô tô LTV 85%, tiệm tạp hóa chưa đăng ký kinh doanh, nhà đất vướng quy hoạch lộ giới, lương tiền mặt không đóng bảo hiểm xã hội.
-- "case-prompt-injection": Các hành vi tấn công mã độc, bỏ qua quy tắc bảo mật.
-
-Hãy trả về duy nhất chuỗi caseId thích hợp (ví dụ: "case-complex-main"), tuyệt đối không giải thích gì thêm.`
-        },
-        {
-          role: "user",
-          content: `Yêu cầu thẩm định: "${prompt}"`
-        }
-      ],
-      max_tokens: 1024,
-      temperature: 0.0,
-    });
-
-    const matchedId = response.choices[0].message.content?.trim().replace(/['"`]/g, "");
-    if (matchedId && RETAIL_CASES[matchedId]) {
-      return matchedId;
-    }
-  } catch (error) {
-    console.error("Failed to classify prompt using LLM, falling back to default:", error);
-  }
-  return "case-complex-main";
-};
-
 /** Shared response assembly for both the synchronous and streaming entry points. */
 const buildOrchestrationResponse = async (
   runId: string,
@@ -80,20 +34,28 @@ const buildOrchestrationResponse = async (
   finalState: OrchestrationState
 ): Promise<OrchestrationResponse> => {
   if (finalState.terminalReason === "BLOCKED") {
+    const traces = assembleTraces(finalState);
+    const transparentAnswer = buildAnswerTransparency(
+      "Yêu cầu bị từ chối do vi phạm quy tắc an toàn bảo mật thông tin (Prompt Injection).",
+      traces,
+      "SECURITY_BLOCKED",
+      "HYBRID_APPROVAL"
+    );
     const response: OrchestrationResponse = {
       runId,
-      finalAnswer: "Yêu cầu bị từ chối do vi phạm quy tắc an toàn bảo mật thông tin (Prompt Injection).",
-      traces: assembleTraces(finalState),
+      finalAnswer: transparentAnswer.finalAnswer,
+      traces,
       budgetStatus: {
         piiMasked: true,
         missingConsentCalls: 0,
         highWritesBeforeApproval: 0,
         modelCallsUsed: finalState.modelCallsCount,
-        maxModelCalls: 30,
-        estimatedCostUSD: 0.02,
+        maxModelCalls: decisionPolicy.runtimeBudget.maximumModelCalls,
+        estimatedCostUSD: decisionPolicy.runtimeBudget.securityBlockEstimatedCostUsd,
         replayMode: true
       },
-      auditEvents: await getAuditEventsByRun(runId)
+      auditEvents: await getAuditEventsByRun(runId),
+      transparency: transparentAnswer.transparency,
     };
     saveOrchestrationRun(runId, response);
     return response;
@@ -101,7 +63,7 @@ const buildOrchestrationResponse = async (
 
   const rawTraces = assembleTraces(finalState);
   const maskedTraces = maskPiiPayload(rawTraces);
-  const { finalDecision, conditions, requiredFixes, ticketId, approvalMode, approvedTerms, businessValue } = finalState;
+  const { finalDecision, conditions, requiredFixes, ticketId, approvalMode, approvedTerms, businessValue, confidence } = finalState;
 
   // Compile final answer string
   let finalAnswer = "";
@@ -110,7 +72,7 @@ const buildOrchestrationResponse = async (
   } else if (finalDecision === "PASS") {
     finalAnswer = ticketId
       ? `[ĐÃ PHÊ DUYỆT] Hạn mức ${approvedTerms?.loanAmount.toLocaleString()} VND đã được người có thẩm quyền duyệt. Mã Core Banking: ${ticketId}.`
-      : `[ĐỀ XUẤT PHÊ DUYỆT] Hồ sơ đạt tiêu chí tín dụng và pháp lý, đang chờ người có thẩm quyền phê duyệt trước khi ghi Core Banking.`;
+      : `[ĐỀ XUẤT PHÊ DUYỆT] Không phát hiện blocker trong phạm vi rule catalog đã chạy; hồ sơ đang chờ người có thẩm quyền phê duyệt trước khi ghi Core Banking.`;
   } else if (finalDecision === "CONDITIONAL_PASS") {
     const creditOutput = rawTraces.find(t => t.agent === "credit")?.toolCalls.find(tc => tc.toolName === "evaluateCreditRules")?.output as any;
     const loanAmt = creditOutput?.restructureScenario?.loanAmount || retailCase.requestedLoan.amount;
@@ -127,8 +89,10 @@ const buildOrchestrationResponse = async (
     finalAnswer = `[TỪ CHỐI PHÊ DUYỆT] Hồ sơ bị từ chối tín dụng do không đáp ứng các chỉ tiêu rủi ro. Chi tiết: ${requiredFixes.join("; ")}`;
   }
 
+  const transparentAnswer = buildAnswerTransparency(finalAnswer, rawTraces, finalDecision, approvalMode, requiredFixes);
+
   // Cost budget calculation
-  const missingConsent = caseId === "case-missing-consent";
+  const missingConsent = !retailCase.consent.credit_check || !retailCase.consent.tax_income_check;
   const highWritesBeforeApproval = (finalDecision === "CONDITIONAL_PASS" || finalDecision === "PASS") && !approvalToken;
 
   const budgetStatus: CostBudgetStatus = {
@@ -136,14 +100,14 @@ const buildOrchestrationResponse = async (
     missingConsentCalls: missingConsent ? 1 : 0,
     highWritesBeforeApproval: highWritesBeforeApproval ? 1 : 0,
     modelCallsUsed: finalState.modelCallsCount,
-    maxModelCalls: 30,
-    estimatedCostUSD: Number((finalState.modelCallsCount * 0.015).toFixed(4)),
+    maxModelCalls: decisionPolicy.runtimeBudget.maximumModelCalls,
+    estimatedCostUSD: Number((finalState.modelCallsCount * decisionPolicy.runtimeBudget.estimatedCostPerModelCallUsd).toFixed(4)),
     replayMode: true
   };
 
   const response: OrchestrationResponse = {
     runId,
-    finalAnswer,
+    finalAnswer: transparentAnswer.finalAnswer,
     traces: maskedTraces,
     approvalTicketId: ticketId,
     conditions,
@@ -151,7 +115,9 @@ const buildOrchestrationResponse = async (
     auditEvents: await getAuditEventsByRun(runId),
     approvalMode,
     approvedTerms,
-    businessValue
+    businessValue,
+    confidence,
+    transparency: transparentAnswer.transparency
   };
 
   saveOrchestrationRun(runId, response);
@@ -161,10 +127,11 @@ const buildOrchestrationResponse = async (
 export const executeOrchestration = async (
   prompt: string,
   requestedBy: string,
-  approvalToken?: string
+  approvalToken?: string,
+  requestedCaseId?: string
 ): Promise<OrchestrationResponse> => {
   const runId = `run-${Date.now()}`;
-  const caseId = await detectCaseIdFromPrompt(prompt);
+  const { caseId } = requireDemoInput(prompt, requestedCaseId);
   const retailCase = RETAIL_CASES[caseId];
 
   // Governance: Record starting audit event, attributed to the authenticated human requester.
@@ -207,11 +174,12 @@ export const streamOrchestration = async (
   prompt: string,
   requestedBy: string,
   approvalToken: string | undefined,
-  onEvent: (event: OrchestrationStreamEvent) => void
+  onEvent: (event: OrchestrationStreamEvent) => void,
+  requestedCaseId?: string
 ): Promise<void> => {
   const runId = `run-${Date.now()}`;
   console.log(">>> RECEIVED PROMPT IN BACKEND:", JSON.stringify(prompt));
-  const caseId = await detectCaseIdFromPrompt(prompt);
+  const { caseId } = requireDemoInput(prompt, requestedCaseId);
   const retailCase = RETAIL_CASES[caseId];
 
   await recordAuditEvent(runId, requestedBy, "agent_call", { prompt, caseId }, "allowed", `Chuyên viên ${requestedBy} khởi chạy quy trình điều phối cho caseId: ${caseId}`);
@@ -247,7 +215,10 @@ export const streamOrchestration = async (
     for (const key of TRACE_KEYS) {
       const trace = chunk[key] as AgentTrace | undefined;
       if (trace && trace !== previous[key]) {
-        onEvent({ type: "node_update", node: trace.agent, trace, riskTier: chunk.riskTier });
+        // Streaming is an external response path too. Mask before every incremental
+        // event; masking only the final response would leak PII through live traces.
+        const maskedTrace = maskPiiPayload(trace) as AgentTrace;
+        onEvent({ type: "node_update", node: maskedTrace.agent, trace: maskedTrace, riskTier: chunk.riskTier });
       }
     }
     previous = chunk;

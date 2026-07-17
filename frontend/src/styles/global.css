@@ -21,6 +21,7 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  overflow-x: hidden;
 }
 
 h1,
@@ -44,4 +45,15 @@ a, button, input, textarea { -webkit-tap-highlight-color: transparent; }
 *:focus-visible {
   outline: 2px solid var(--color-info);
   outline-offset: 2px;
+}
+
+button, a { touch-action: manipulation; }
+
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { border: 3px solid transparent; border-radius: 999px; background: #bdc9c3; background-clip: padding-box; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }

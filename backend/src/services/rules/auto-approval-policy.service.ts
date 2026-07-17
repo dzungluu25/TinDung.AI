@@ -1,5 +1,6 @@
 import { RetailCase } from "../../types/case.types";
 import { CreditAssessmentResult } from "./credit-rule-engine";
+import { decisionPolicy } from "../../config/policy";
 
 export interface AutoApprovalResult {
   eligible: boolean;
@@ -8,16 +9,18 @@ export interface AutoApprovalResult {
 
 /** Hard gate for the low-risk lane. No LLM output can override these checks. */
 export const evaluateAutoApprovalPolicy = (retailCase: RetailCase, credit: CreditAssessmentResult, hasProductConflict = false): AutoApprovalResult => {
+  const policy = decisionPolicy.autoApproval;
+  const codes = policy.reasonCodes;
   const checks: Array<[boolean, string]> = [
-    [retailCase.requestedLoan.amount <= 500_000_000, "AUTO_AMOUNT_WITHIN_LIMIT"],
-    [credit.originalScenario.dtiStress <= 40, "AUTO_DTI_WITHIN_40"],
-    [credit.originalScenario.ltv <= 50, "AUTO_LTV_WITHIN_50"],
-    [credit.creditDecision === "PASS", "AUTO_CREDIT_RULES_PASS"],
-    [retailCase.property.status === "completed", "AUTO_COLLATERAL_COMPLETED"],
-    [retailCase.currentDebts.length === 0, "AUTO_NO_EXISTING_DEBT"],
-    [retailCase.consent.credit_check && retailCase.consent.tax_income_check, "AUTO_REQUIRED_CONSENT_PRESENT"],
-    [retailCase.demographic.age >= 18 && retailCase.demographic.age <= 60, "AUTO_AGE_WITHIN_POLICY"],
-    [!hasProductConflict, "AUTO_PRODUCT_COMPLIANCE_CLEAN"],
+    [retailCase.requestedLoan.amount <= policy.maximumLoanAmountVnd, codes.amount],
+    [credit.originalScenario.dtiStress <= policy.maximumDtiPercent, codes.dti],
+    [credit.originalScenario.ltv <= policy.maximumLtvPercent, codes.ltv],
+    [credit.creditDecision === "PASS", codes.credit],
+    [retailCase.property.status === policy.requiredPropertyStatus, codes.collateral],
+    [!policy.requireNoExistingDebt || retailCase.currentDebts.length === 0, codes.debt],
+    [policy.requiredConsentFields.every(field => retailCase.consent[field]), codes.consent],
+    [retailCase.demographic.age >= policy.minimumApplicantAge && retailCase.demographic.age <= policy.maximumApplicantAge, codes.age],
+    [!hasProductConflict, codes.product],
   ];
 
   const failed = checks.filter(([passed]) => !passed).map(([, code]) => `${code}_FAILED`);

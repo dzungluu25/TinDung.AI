@@ -1,12 +1,8 @@
-export const checkCreditScore = async (customerId: string): Promise<Record<string, unknown>> => {
-  // Mocking an external tool call
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        customerId,
-        creditScore: Math.floor(Math.random() * 300) + 500, // 500 to 800
-        status: "APPROVED_FOR_CHECK"
-      });
-    }, 500);
-  });
-};
+/** Legacy adapter kept for compatibility. It never fabricates an external credit score. */
+export const checkCreditScore = async (customerId: string): Promise<Record<string, unknown>> => ({
+  customerId,
+  creditScore: null,
+  verified: false,
+  status: "SOURCE_UNAVAILABLE",
+  reason: "No authoritative credit-bureau connector is configured.",
+});
