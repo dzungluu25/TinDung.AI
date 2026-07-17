@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { triggerOrchestration } from "./api/orchestration.api";
-import { OrchestrationResponse } from "./types/orchestration.types";
+import type { OrchestrationResponse } from "./types/orchestration.types";
 import { PromptComposer } from "./components/PromptComposer";
 import { AgentTraceTimeline } from "./components/AgentTraceTimeline";
 import { FinalAnswerPanel } from "./components/FinalAnswerPanel";

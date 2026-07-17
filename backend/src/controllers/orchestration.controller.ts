@@ -10,7 +10,7 @@ export const orchestratePrompt = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Prompt is required" });
     }
 
-    const result = await executeMockOrchestration(prompt);
+    const result = await executeMockOrchestration(req.body as OrchestrationRequest);
     return res.status(200).json(result);
   } catch (error) {
     console.error("Orchestration error:", error);

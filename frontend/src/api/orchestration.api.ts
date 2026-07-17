@@ -1,5 +1,5 @@
 import { apiClient } from "./client";
-import { OrchestrationResponse } from "../types/orchestration.types";
+import type { OrchestrationResponse } from "../types/orchestration.types";
 
 export const triggerOrchestration = async (prompt: string): Promise<OrchestrationResponse> => {
   return apiClient<OrchestrationResponse>("/api/orchestrate", {

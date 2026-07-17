@@ -15,6 +15,7 @@ export interface AgentTrace {
   status: "pending" | "running" | "completed" | "blocked" | "failed";
   summary: string;
   toolCalls: ToolCallTrace[];
+  output?: Record<string, unknown>;
   startedAt: string;
   completedAt?: string;
 }

@@ -1,5 +1,5 @@
 import React from "react";
-import { ToolCallTrace } from "../types/trace.types";
+import type { ToolCallTrace } from "../types/trace.types";
 
 interface ToolCallTableProps {
   toolCalls: ToolCallTrace[];
