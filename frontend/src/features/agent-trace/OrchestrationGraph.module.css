@@ -1,8 +1,8 @@
 .canvas {
-  height: 420px;
+  height: 520px;
   border-radius: var(--radius-md);
   overflow: hidden;
-  background: var(--color-surface-alt);
+  background: linear-gradient(145deg, #f8faf8, #f2f6f4);
 }
 
 .canvas :global(.react-flow__attribution) {

@@ -11,6 +11,7 @@ export const config = {
   authJwtSecret: process.env.AUTH_JWT_SECRET || "",
   demoOfficerPassword: process.env.DEMO_OFFICER_PASSWORD || "",
   demoApproverPassword: process.env.DEMO_APPROVER_PASSWORD || "",
+  publicDemoSession: process.env.ENABLE_PUBLIC_DEMO_SESSION === "true" || (process.env.NODE_ENV || "development") !== "production",
   fptMarketplaceApiKey: process.env.FPT_MARKETPLACE_API_KEY || "",
   fptMarketplaceBaseUrl: process.env.FPT_MARKETPLACE_BASE_URL || "https://mkp-api.fptcloud.com",
   fptLegalModel: process.env.FPT_LEGAL_MODEL || "gpt-oss-120b",

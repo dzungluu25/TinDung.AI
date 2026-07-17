@@ -1,12 +1,11 @@
 import { useCallback, useRef } from "react";
-import { useAuthStore } from "../store/authStore";
 import { useOrchestrationStore } from "../store/orchestrationStore";
 import { streamOrchestration } from "../services/orchestrationService";
+import { getDemoAccessToken } from "../services/authService";
 import { ApiError } from "../services/httpClient";
 
 /** Kicks off a streamed orchestration run and pipes every NDJSON event into the orchestration store. */
 export const useAgentStream = () => {
-  const token = useAuthStore(s => s.token);
   const phase = useOrchestrationStore(s => s.phase);
   const startRun = useOrchestrationStore(s => s.startRun);
   const applyStreamEvent = useOrchestrationStore(s => s.applyStreamEvent);
@@ -15,7 +14,7 @@ export const useAgentStream = () => {
 
   const run = useCallback(
     async (prompt: string, approvalToken?: string) => {
-      if (!token || !prompt.trim()) return;
+      if (!prompt.trim()) return;
 
       abortRef.current?.abort();
       const controller = new AbortController();
@@ -23,12 +22,13 @@ export const useAgentStream = () => {
 
       startRun(prompt);
       try {
+        const token = await getDemoAccessToken();
         await streamOrchestration(prompt, token, approvalToken, applyStreamEvent, controller.signal);
       } catch (err) {
         fail(err instanceof ApiError ? err.message : "Không thể kết nối tới máy chủ điều phối.");
       }
     },
-    [token, startRun, applyStreamEvent, fail]
+    [startRun, applyStreamEvent, fail]
   );
 
   return { run, phase };

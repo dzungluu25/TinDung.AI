@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { verifyCredentials } from "../services/auth/demo-user.store";
 import { signAccessToken, ACCESS_TOKEN_TTL_SECONDS } from "../config/auth";
 import { recordAuditEvent } from "../services/governance/audit-log.service";
+import { config } from "../config/env";
 
 const AUTH_RUN_ID = "auth-session";
 
@@ -44,4 +45,30 @@ export const login = async (req: Request, res: Response) => {
     console.error("Login error:", error);
     return res.status(500).json({ error: "Internal server error during login" });
   }
+};
+
+/**
+ * Creates a short-lived, officer-scoped session for the public hackathon demo.
+ * It is enabled by default only outside production; production must opt in explicitly.
+ * This keeps orchestration endpoints authenticated without exposing credentials in the UI.
+ */
+export const createDemoSession = async (_req: Request, res: Response) => {
+  if (!config.publicDemoSession) {
+    return res.status(404).json({ error: "Demo session is not available" });
+  }
+
+  const username = "demo.officer";
+  const role = "CREDIT_OFFICER" as const;
+  const accessToken = signAccessToken({ sub: username, role });
+
+  await recordAuditEvent(
+    AUTH_RUN_ID,
+    username,
+    "agent_call",
+    { role, mode: "public-demo" },
+    "allowed",
+    "Khởi tạo phiên truy cập giới hạn cho giao diện hackathon demo."
+  );
+
+  return res.status(200).json({ accessToken, role, expiresIn: ACCESS_TOKEN_TTL_SECONDS });
 };

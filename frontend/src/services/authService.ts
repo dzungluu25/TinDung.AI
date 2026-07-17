@@ -9,3 +9,19 @@ export interface LoginResponse {
 
 export const login = (username: string, password: string): Promise<LoginResponse> =>
   apiFetch<LoginResponse>("/api/auth/login", { method: "POST", body: { username, password } });
+
+let cachedDemoSession: { token: string; expiresAt: number } | null = null;
+
+/** Gets a short-lived officer token without showing a login screen in the hackathon demo. */
+export const getDemoAccessToken = async (): Promise<string> => {
+  if (cachedDemoSession && cachedDemoSession.expiresAt > Date.now() + 30_000) {
+    return cachedDemoSession.token;
+  }
+
+  const session = await apiFetch<LoginResponse>("/api/auth/demo-session", { method: "POST" });
+  cachedDemoSession = {
+    token: session.accessToken,
+    expiresAt: Date.now() + session.expiresIn * 1000,
+  };
+  return session.accessToken;
+};

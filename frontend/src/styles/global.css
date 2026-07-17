@@ -7,8 +7,10 @@
 html,
 body,
 #root {
-  height: 100%;
+  min-height: 100%;
 }
+
+html { scroll-behavior: smooth; }
 
 body {
   margin: 0;
@@ -18,6 +20,7 @@ body {
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 h1,
@@ -31,6 +34,8 @@ p {
 button {
   font-family: inherit;
 }
+
+a, button, input, textarea { -webkit-tap-highlight-color: transparent; }
 
 ::selection {
   background: var(--color-brand-soft);

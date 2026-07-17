@@ -3,7 +3,7 @@ import { PerformanceComparison } from "../features/metrics/PerformanceComparison
 
 export const MetricsPage = () => (
   <>
-    <Header title="Hiệu năng hệ thống" subtitle="So sánh quy trình Multi-Agent Orchestration với Chatbot đơn lẻ" />
+    <Header eyebrow="Performance & observability" title="Hiệu năng có thể quan sát." subtitle="Theo dõi thời gian xử lý, số bước agent và tool calls từ các phiên thẩm định trong workspace." />
     <PerformanceComparison />
   </>
 );

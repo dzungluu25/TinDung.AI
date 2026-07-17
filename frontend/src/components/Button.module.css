@@ -3,14 +3,14 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  height: 40px;
-  padding: 0 var(--space-4);
+  min-height: 42px;
+  padding: 0 18px;
   border-radius: var(--radius-sm);
   border: 1px solid transparent;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+  transition: background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease, transform .15s ease;
   white-space: nowrap;
 }
 
@@ -26,6 +26,7 @@
 
 .primary:not(:disabled):hover {
   background: var(--color-brand-strong);
+  transform: translateY(-1px);
 }
 
 .secondary {
