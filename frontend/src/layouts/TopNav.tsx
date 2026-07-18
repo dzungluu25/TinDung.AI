@@ -1,12 +1,15 @@
-import { Activity, ArrowUpRight, BrainCircuit, ChartNoAxesCombined, House, Sparkles, UsersRound } from "lucide-react";
+import { Activity, ArrowUpRight, BrainCircuit, ChartNoAxesCombined, House, Sparkles, UsersRound, FileText, Settings } from "lucide-react";
 import { Link, NavLink } from "react-router-dom";
 import styles from "./TopNav.module.css";
 
 const NAV_ITEMS = [
   { to: "/workspace", label: "Thẩm định", icon: Sparkles },
   { to: "/agents", label: "Agent flow", icon: BrainCircuit },
+  { to: "/builder", label: "Workflow Builder", icon: BrainCircuit },
+  { to: "/settings", label: "Cấu hình Hệ thống", icon: Settings },
   { to: "/roles", label: "Vai trò", icon: UsersRound },
   { to: "/metrics", label: "Hiệu năng", icon: ChartNoAxesCombined },
+  { to: "/loan-form", label: "Form Vay vốn", icon: FileText },
 ];
 
 export const TopNav = () => (

@@ -1,0 +1,11 @@
+QUY CHẾ TÍN DỤNG VÀ PHÁP LÝ SHB (MOCK)
+
+1. ĐIỀU KIỆN CẤP TÍN DỤNG
+- Khách hàng cá nhân cần có Điểm Tín Dụng (CIC Score) tối thiểu là 600 để được xét duyệt các khoản vay tiêu dùng cơ bản.
+- Đối với khoản vay mua nhà, Điểm Tín Dụng tối thiểu phải đạt 700.
+- Khách hàng có Điểm Tín Dụng dưới 600 sẽ tự động bị từ chối tín dụng, trừ khi có tài sản đảm bảo đặc biệt.
+
+2. KIỂM TRA PHÁP LÝ TÀI LIỆU
+- Mọi tài liệu nộp lên (Hợp đồng lao động, Giấy tờ sở hữu tài sản) không được chứa các từ khóa liên quan đến "fraud", "giả mạo", "chỉnh sửa".
+- Nếu phát hiện dấu hiệu gian lận hoặc thông tin không trùng khớp, hồ sơ pháp lý sẽ bị đánh dấu "Không hợp lệ" (Failed).
+- Tài liệu hợp lệ (Passed) là điều kiện bắt buộc trước khi chuyển sang bước Operations để ra quyết định cuối cùng.

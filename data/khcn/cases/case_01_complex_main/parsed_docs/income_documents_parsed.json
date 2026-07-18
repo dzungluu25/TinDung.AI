@@ -1,5 +1,43 @@
 {
   "document_type": "income_documents",
+  "_provenance": {
+    "document_id": "DOC-KHCN-01-INCOME",
+    "source_hash": "sha256:khcn-case01-income-v1",
+    "provider": "fixture-json-with-provenance",
+    "extracted_at": "2026-07-18T00:00:00.000Z",
+    "pages": [
+      {
+        "page_number": 1,
+        "confidence": 0.97,
+        "bbox_count": 8
+      },
+      {
+        "page_number": 2,
+        "confidence": 0.95,
+        "bbox_count": 4
+      }
+    ],
+    "fields": [
+      {
+        "path": "/fields/income_sources/0/declared_monthly",
+        "page_number": 1,
+        "bbox": [52, 118, 232, 142],
+        "confidence": 0.98
+      },
+      {
+        "path": "/fields/income_sources/1/declared_monthly",
+        "page_number": 1,
+        "bbox": [52, 178, 236, 202],
+        "confidence": 0.95
+      },
+      {
+        "path": "/fields/income_sources/2/declared_monthly",
+        "page_number": 2,
+        "bbox": [48, 90, 216, 114],
+        "confidence": 0.96
+      }
+    ]
+  },
   "fields": {
     "income_sources": [
       {

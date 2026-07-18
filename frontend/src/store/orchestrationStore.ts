@@ -129,7 +129,10 @@ export const useOrchestrationStore = create<OrchestrationStoreState>()((set, get
     }
 
     // event.type === "error"
-    set({ phase: "error", error: event.message });
+    const steps = state.steps.map(s => 
+      (s.status === "pending" || s.status === "in_progress") ? { ...s, status: "skipped" as StepStatus } : s
+    );
+    set({ phase: "error", error: event.message, steps });
   },
 
   fail: message => set({ phase: "error", error: message }),

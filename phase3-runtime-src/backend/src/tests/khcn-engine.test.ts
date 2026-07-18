@@ -11,7 +11,9 @@ import {
   runDemoCase,
 } from "../services/orchestration/retail-case.service";
 import { evaluateKhcnCases } from "../services/retail/evaluation.service";
-import { getModelGatewayStatus } from "../services/retail/model-gateway.service";
+import { buildRetailGovernanceReport, getModelGatewayStatus } from "../services/retail/model-gateway.service";
+import { getProductionReadinessReport } from "../services/retail/production-readiness.service";
+import { buildAgentNetworkReport } from "../services/retail/agent-network.service";
 import { clearRetailRunRepositoryCache } from "../services/retail/retail-run.repository";
 import { clearKhcnFixtureCache, findKhcnCaseFixture, loadKhcnCaseFixtures } from "../services/retail/case-fixture.service";
 import { runCreditRuleEngine } from "../services/retail/rule-engine/credit-rule-engine.service";
@@ -99,6 +101,22 @@ test("main complex case computes proposal and waits for human approval", async (
       .filter((action) => action.sideEffect === "HIGH")
       .every((action) => action.status === "BLOCKED")
   );
+});
+
+test("multi-agent network exposes planner, specialists, handoffs and tool use", async () => {
+  const run = await requireRun("case_01_complex_main");
+  const report = buildAgentNetworkReport(run);
+  const agents = report.specialists.map((specialist) => specialist.agent);
+
+  assert.ok(agents.includes("planner"));
+  assert.ok(agents.includes("credit"));
+  assert.ok(agents.includes("legal"));
+  assert.ok(agents.includes("gate"));
+  assert.ok(agents.includes("operations"));
+  assert.ok(report.handoffs.length >= 4);
+  assert.ok(report.toolUseSummary.toolCallCount >= 8);
+  assert.equal(report.toolUseSummary.executesBankingActions, true);
+  assert.ok(report.singleAgentComparison.baseline.missingCapabilities.includes("No explicit planner dependency graph"));
 });
 
 test("deterministic rule engine modules compute credit, legal findings and gate", async () => {
@@ -314,6 +332,26 @@ test("last-mile production seams expose queue and document ingestion boundaries"
       }),
     /fixture-json only/
   );
+});
+
+test("governance report exposes parsed document provenance", async () => {
+  const run = await requireRun("case_01_complex_main");
+  const report = await buildRetailGovernanceReport(run);
+
+  assert.ok(report.documentEvidence.length >= 5);
+  assert.ok(report.documentEvidence.every((document) => document.status === "PASS"));
+  assert.ok(report.documentEvidence.every((document) => document.sourceHash.startsWith("sha256:")));
+  assert.ok(report.controls.some((control) => control.id === "DOCUMENT_PROVENANCE" && control.status === "PASS"));
+});
+
+test("production readiness report separates demo assurance from go-live blockers", async () => {
+  const report = await getProductionReadinessReport();
+
+  assert.equal(report.localDemoScore, 95);
+  assert.equal(report.productionGoLiveStatus, "BLOCKED");
+  assert.ok(report.productionGoLiveScore < report.localDemoScore);
+  assert.ok(report.blockers.some((blocker) => blocker.id === "DOCUMENT_INGESTION"));
+  assert.ok(report.controls.some((control) => control.id === "HUMAN_APPROVAL_GUARD" && control.status === "PASS"));
 });
 
 test("rule evidence retrieval uses local rule packs instead of mock RAG", async () => {

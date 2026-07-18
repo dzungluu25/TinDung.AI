@@ -114,6 +114,17 @@ export interface GovernanceReport {
     snippet: string;
     score: number;
   }>;
+  documentEvidence: Array<{
+    documentName: string;
+    documentId: string;
+    provider: string;
+    sourceHash: string;
+    pageCount: number;
+    minConfidence?: number;
+    bboxCount: number;
+    fieldEvidenceCount: number;
+    status: "PASS" | "WARN";
+  }>;
   auditCoverage: {
     auditEvents: number;
     traces: number;
@@ -166,6 +177,103 @@ export interface ModelGatewayStatus {
   };
 }
 
+export interface ProductionReadinessReport {
+  reportId: string;
+  generatedAt: string;
+  localDemoScore: number;
+  targetScoreAfterExternalControls: number;
+  productionGoLiveScore: number;
+  productionGoLiveStatus: "READY" | "BLOCKED";
+  blockers: Array<{
+    id: string;
+    label: string;
+    status: "PASS" | "WARN" | "FAIL";
+    nextAction?: string;
+  }>;
+  controls: Array<{
+    id: string;
+    category: string;
+    label: string;
+    status: "PASS" | "WARN" | "FAIL";
+    evidence: string;
+    nextAction?: string;
+    productionBlocker: boolean;
+  }>;
+}
+
+export interface AgentNetworkReport {
+  reportId: string;
+  requestId: string;
+  caseId: string;
+  title: string;
+  objective: string;
+  specialists: Array<{
+    agent: string;
+    label: string;
+    bankingDomain: string;
+    responsibility: string;
+    task: string;
+    status: string;
+    decision: string;
+    toolCount: number;
+    tools: Array<{
+      name: string;
+      status: string;
+    }>;
+    sequence: number;
+  }>;
+  orchestrationPlan: Array<{
+    step: number;
+    assignedAgent: string;
+    task: string;
+    dependsOn: string[];
+    status: string;
+    output: string;
+  }>;
+  handoffs: Array<{
+    from: string;
+    to: string;
+    artifact: string;
+    status: string;
+  }>;
+  toolUseSummary: {
+    agentCount: number;
+    toolCallCount: number;
+    operationalActionCount: number;
+    highSideEffectActionCount: number;
+    blockedHighSideEffectCount: number;
+    auditEventCount: number;
+    usesInternalKnowledge: boolean;
+    executesBankingActions: boolean;
+  };
+  decisionSynthesis: {
+    riskTier: string;
+    approvalRoute: string;
+    gateStatus: string;
+    lifecycleStatus: string;
+    finalAnswer: string;
+    conditions: Array<{
+      blocksAt: string;
+      ruleId: string;
+      text: string;
+    }>;
+  };
+  singleAgentComparison: {
+    baseline: {
+      name: string;
+      expectedBehavior: string;
+      toolCallCount: number;
+      missingCapabilities: string[];
+    };
+    multiAgent: {
+      name: string;
+      expectedBehavior: string;
+      toolCallCount: number;
+      coveredDomains: string[];
+    };
+  };
+}
+
 const serverApiBase = () =>
   process.env.API_INTERNAL_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 
@@ -199,6 +307,12 @@ export const getRequestGovernance = async (requestId: string) =>
 export const getEvaluationReport = async () => apiFetch<EvaluationReport>("/api/evaluation/khcn");
 
 export const getModelGatewayStatus = async () => apiFetch<ModelGatewayStatus>("/api/model-gateway/status");
+
+export const getProductionReadiness = async () =>
+  apiFetch<ProductionReadinessReport>("/api/production-readiness");
+
+export const getCaseAgentNetwork = async (caseId: string) =>
+  apiFetch<{ run: RetailCaseRun; agentNetwork: AgentNetworkReport }>(`/api/cases/${caseId}/agent-network`);
 
 export const statusTone = (status: string): BadgeTone => {
   if (status === "PASS" || status === "AUTO_APPROVED" || status === "COMPLETED") return "success";

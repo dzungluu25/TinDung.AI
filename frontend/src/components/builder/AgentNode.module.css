@@ -1,0 +1,87 @@
+.agentNode {
+  background: white;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  width: 250px;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  font-family: inherit;
+  overflow: hidden;
+}
+
+.header {
+  background: #f8f6f3;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid #e5e5e5;
+  color: #4a3b32;
+}
+
+.header strong {
+  flex: 1;
+  font-size: 14px;
+}
+
+.badge {
+  font-size: 10px;
+  background: #e3ddd5;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #5c4d43;
+}
+
+.body {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #666;
+}
+
+.field select {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 12px;
+  outline: none;
+  background: white;
+}
+
+.handle {
+  width: 8px;
+  height: 8px;
+  background: #8b7355;
+  border: 2px solid white;
+}
+
+.conditionalHandle {
+  background: #e67e22; /* Cam để biểu thị rẽ nhánh */
+}
+
+.statusRunning {
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.28);
+}
+
+.statusSuccess {
+  border-color: #16a34a;
+  box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.22);
+}
+
+.statusReview {
+  border-color: #d97706;
+  box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.22);
+}
+
+.statusFailed {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.22);
+}

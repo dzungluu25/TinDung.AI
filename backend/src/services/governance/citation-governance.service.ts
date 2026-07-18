@@ -3,7 +3,7 @@ import { AnswerClaim, AnswerTransparency, VerifiedCitation } from "../../types/o
 import { AgentTrace } from "../../types/trace.types";
 import citationCatalogJson from "../../policy/citation-catalog.json";
 
-interface CitationCatalog {
+export interface CitationCatalog {
   policyVersion: string;
   sources: Record<string, VerifiedCitation>;
   ruleSources: Record<string, string[]>;
@@ -21,14 +21,39 @@ const sourcesForRule = (ruleId: string): string[] => {
 
 const citationLabel = (citation: VerifiedCitation): string => `${citation.documentNumber} - ${citation.locator}`;
 
-export const groundLegalFindings = (findings: DecisionEnvelope[]): DecisionEnvelope[] =>
-  findings.map(finding => {
-    const citationIds = [...new Set(finding.ruleIds.flatMap(sourcesForRule))];
-    if (!citationIds.length || citationIds.some(id => !catalog.sources[id])) {
-      throw new Error(`Citation governance rejected unsupported legal rule: ${finding.ruleIds.join(", ") || "missing rule"}`);
+interface GroundableFinding {
+  ruleIds: string[];
+  citations: string[];
+  agent: string;
+}
+
+/**
+ * Generalized version of the legal-only grounding check below: any agent's findings can
+ * be forced through the same fail-closed rule-id -> citation-catalog resolution, given
+ * its own catalog/agent identity/rule-resolution strategy. `groundLegalFindings` is now a
+ * thin wrapper over this so its existing throw-on-unmapped-rule behavior (and the
+ * `test-core.ts` assertions against it) are unchanged.
+ */
+export const groundFindings = <T extends GroundableFinding>(
+  findings: T[],
+  options: {
+    catalog: CitationCatalog;
+    agentName: T["agent"];
+    resolveRuleId?: (ruleId: string) => string[];
+  }
+): T[] => {
+  const resolveRuleId = options.resolveRuleId ?? ((ruleId: string) => options.catalog.ruleSources[ruleId] ?? []);
+  return findings.map(finding => {
+    const citationIds = [...new Set(finding.ruleIds.flatMap(resolveRuleId))];
+    if (!citationIds.length || citationIds.some(id => !options.catalog.sources[id])) {
+      throw new Error(`Citation governance rejected unsupported rule: ${finding.ruleIds.join(", ") || "missing rule"}`);
     }
-    return { ...finding, agent: "legal", citations: citationIds.map(id => citationLabel(catalog.sources[id])) };
+    return { ...finding, agent: options.agentName, citations: citationIds.map(id => citationLabel(options.catalog.sources[id])) };
   });
+};
+
+export const groundLegalFindings = (findings: DecisionEnvelope[]): DecisionEnvelope[] =>
+  groundFindings(findings, { catalog, agentName: "legal", resolveRuleId: sourcesForRule });
 
 const allFindings = (traces: AgentTrace[]): DecisionEnvelope[] =>
   traces.flatMap(trace => (trace.findings ?? []) as DecisionEnvelope[]);

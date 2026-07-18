@@ -178,7 +178,6 @@ export const streamOrchestration = async (
   requestedCaseId?: string
 ): Promise<void> => {
   const runId = `run-${Date.now()}`;
-  console.log(">>> RECEIVED PROMPT IN BACKEND:", JSON.stringify(prompt));
   const { caseId } = requireDemoInput(prompt, requestedCaseId);
   const retailCase = RETAIL_CASES[caseId];
 

@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import authRoutes from "./routes/auth.routes";
 import orchestrationRoutes from "./routes/orchestration.routes";
+import workflowRoutes from "./routes/workflow.routes";
 
 const app = express();
 
@@ -14,5 +15,6 @@ app.get("/health", (req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/orchestrate", orchestrationRoutes);
+app.use("/api/workflows", workflowRoutes);
 
 export default app;

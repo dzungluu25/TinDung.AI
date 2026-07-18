@@ -14,6 +14,8 @@ import {
   explainRetailDecision,
   getModelGatewayStatus,
 } from "../services/retail/model-gateway.service";
+import { getProductionReadinessReport } from "../services/retail/production-readiness.service";
+import { buildAgentNetworkReport } from "../services/retail/agent-network.service";
 
 export const listCases = async (_req: Request, res: Response) => {
   return res.status(200).json({ cases: await listDemoCases() });
@@ -41,6 +43,20 @@ export const previewCase = async (req: Request, res: Response) => {
   return res.status(200).json({
     run,
     governance: await buildRetailGovernanceReport(run),
+  });
+};
+
+export const previewCaseAgentNetwork = async (req: Request, res: Response) => {
+  const { caseId } = req.params;
+  const run = await buildDemoCaseRun(caseId);
+
+  if (!run) {
+    return res.status(404).json({ error: `Unknown demo case: ${caseId}` });
+  }
+
+  return res.status(200).json({
+    run,
+    agentNetwork: buildAgentNetworkReport(run),
   });
 };
 
@@ -108,6 +124,17 @@ export const getRequestGovernance = async (req: Request, res: Response) => {
   return res.status(200).json(await buildRetailGovernanceReport(run));
 };
 
+export const getRequestAgentNetwork = async (req: Request, res: Response) => {
+  const { requestId } = req.params;
+  const run = await getRetailCaseRun(requestId);
+
+  if (!run) {
+    return res.status(404).json({ error: `Unknown request: ${requestId}` });
+  }
+
+  return res.status(200).json(buildAgentNetworkReport(run));
+};
+
 export const getKhcnEvaluation = async (_req: Request, res: Response) => {
   return res.status(200).json(await evaluateKhcnCases());
 };
@@ -118,6 +145,10 @@ export const getKhcnEvaluationMarkdown = async (_req: Request, res: Response) =>
 
 export const getModelGateway = (_req: Request, res: Response) => {
   return res.status(200).json(getModelGatewayStatus());
+};
+
+export const getProductionReadiness = async (_req: Request, res: Response) => {
+  return res.status(200).json(await getProductionReadinessReport());
 };
 
 export const explainRequestWithModel = async (req: Request, res: Response) => {

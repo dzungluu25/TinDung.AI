@@ -1,0 +1,4793 @@
+{
+  "version": 1,
+  "updatedAt": "2026-07-18T02:26:00.362Z",
+  "runs": [
+    {
+      "requestId": "REQ-FAST-47f6d127-54a1-488e-88f5-e588b0c4cad3",
+      "caseId": "case_02_fast_clean",
+      "title": "Fast clean unsecured payroll loan",
+      "product": "UNSECURED_PERSONAL_LOAN",
+      "riskTier": "FAST",
+      "approvalRoute": "AUTO_APPROVAL",
+      "status": "COMPLETED",
+      "gateStatus": "AUTO_APPROVED",
+      "finalAnswer": "AUTO_APPROVED. Fast retail case passed deterministic policy and executed with auto_approval_token.",
+      "autoApprovalToken": "auto-token-e455c76c-3c1a-4baa-b0ad-0a55d368c935",
+      "requiresHumanApproval": false,
+      "customerRequest": {
+        "loanAmount": 150000000,
+        "termMonths": 36,
+        "purpose": "Payroll customer personal loan."
+      },
+      "systemProposal": {
+        "loanAmount": 150000000,
+        "gateStatus": "AUTO_APPROVED",
+        "approvalRoute": "AUTO_APPROVAL",
+        "fullMultiAgentRun": false
+      },
+      "conditions": [],
+      "executionActions": [
+        {
+          "tool": "los.create_retail_approval",
+          "sideEffect": "HIGH",
+          "status": "CREATED",
+          "requiresApprovalToken": true,
+          "message": "Auto approval record created inside demo policy."
+        },
+        {
+          "tool": "notification.notify_customer",
+          "sideEffect": "HIGH",
+          "status": "SENT",
+          "requiresApprovalToken": true,
+          "message": "Customer notified with auto-approved checklist."
+        },
+        {
+          "tool": "audit.append_event",
+          "sideEffect": "LOW",
+          "status": "APPENDED",
+          "requiresApprovalToken": false,
+          "message": "Auto approval audit event appended."
+        }
+      ],
+      "governance": {
+        "tier": "FAST",
+        "approvalRoute": "AUTO_APPROVAL",
+        "modelCallsUsed": 1,
+        "modelCallsBudget": 1,
+        "estimatedCostUsd": 0.01,
+        "maxCostUsd": 0.02,
+        "rawPiiToLlm": false,
+        "maskedFieldCount": 0,
+        "replayMode": true,
+        "cacheHitCount": 1
+      },
+      "traces": [
+        {
+          "id": "trace-router-cda96c0a-3dfa-444b-96d5-428b3e85a6e9",
+          "runId": "REQ-FAST-47f6d127-54a1-488e-88f5-e588b0c4cad3",
+          "agent": "router",
+          "task": "Route request and choose approval lane",
+          "status": "completed",
+          "summary": "FAST tier selected from risk_router_inputs.",
+          "toolCalls": [
+            {
+              "toolName": "risk_router.route",
+              "input": {
+                "loan_amount": 150000000,
+                "collateral_type": "NONE_OR_DEPOSIT_BACKED",
+                "income_sources_count": 1,
+                "has_unverified_income": false,
+                "has_external_debt": false,
+                "is_future_property": false
+              },
+              "output": {
+                "tier": "FAST",
+                "approval_route": "AUTO_APPROVAL",
+                "agents_required": [],
+                "rule_id": "SHB-RISK-ROUTER-001"
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.247Z",
+          "completedAt": "2026-07-18T02:26:00.247Z"
+        },
+        {
+          "id": "trace-gate-7c359d51-474a-4365-992f-5e18ba0ff23b",
+          "runId": "REQ-FAST-47f6d127-54a1-488e-88f5-e588b0c4cad3",
+          "agent": "gate",
+          "task": "Evaluate auto approval policy",
+          "status": "completed",
+          "summary": "All deterministic auto-policy checks passed.",
+          "toolCalls": [
+            {
+              "toolName": "approval.evaluate_auto_policy",
+              "input": {
+                "amount": 150000000,
+                "dti_buffer_safe": true,
+                "consent_complete": true,
+                "legal_blockers": 0,
+                "policy_exceptions": 0
+              },
+              "output": {
+                "auto_policy_passed": true,
+                "gate_status": "AUTO_APPROVED",
+                "issued_token": "auto-token-e455c76c-3c1a-4baa-b0ad-0a55d368c935"
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.247Z",
+          "completedAt": "2026-07-18T02:26:00.247Z"
+        },
+        {
+          "id": "trace-operations-1678e12b-42ad-4834-a75f-a186007a5332",
+          "runId": "REQ-FAST-47f6d127-54a1-488e-88f5-e588b0c4cad3",
+          "agent": "operations",
+          "task": "Execute allowed auto-approval actions",
+          "status": "completed",
+          "summary": "Mock LOS approval and customer notification created with auto approval token.",
+          "toolCalls": [
+            {
+              "toolName": "los.create_retail_approval",
+              "input": {
+                "approval_token": "auto-token-e455c76c-3c1a-4baa-b0ad-0a55d368c935",
+                "amount": 150000000
+              },
+              "output": {
+                "status": "CREATED",
+                "approval_id": "LOS-AUTO-d15fcf2c-a7d1-44df-a47b-d294af617e09"
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "notification.notify_customer",
+              "input": {
+                "approval_token": "auto-token-e455c76c-3c1a-4baa-b0ad-0a55d368c935",
+                "channel": "MOBILE_APP"
+              },
+              "output": {
+                "status": "SENT"
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.247Z",
+          "completedAt": "2026-07-18T02:26:00.247Z"
+        }
+      ],
+      "audit": [
+        {
+          "id": "audit-44fdd71b-9dc7-4c46-b587-aa6c8cdfb717",
+          "requestId": "REQ-FAST-47f6d127-54a1-488e-88f5-e588b0c4cad3",
+          "actor": "router",
+          "eventType": "ROUTED",
+          "message": "FAST tier selected.",
+          "timestamp": "2026-07-18T02:26:00.247Z",
+          "metadata": {
+            "approvalRoute": "AUTO_APPROVAL"
+          }
+        },
+        {
+          "id": "audit-2ec88fc6-75fd-4c96-aa09-df8a373cc04d",
+          "requestId": "REQ-FAST-47f6d127-54a1-488e-88f5-e588b0c4cad3",
+          "actor": "approval_policy",
+          "eventType": "AUTO_APPROVED",
+          "message": "Auto policy passed and token issued.",
+          "timestamp": "2026-07-18T02:26:00.247Z",
+          "metadata": {
+            "autoApprovalToken": "auto-token-e455c76c-3c1a-4baa-b0ad-0a55d368c935"
+          }
+        },
+        {
+          "id": "audit-7f9a4ea2-d8bc-44fc-975d-3958713de666",
+          "requestId": "REQ-FAST-47f6d127-54a1-488e-88f5-e588b0c4cad3",
+          "actor": "operations",
+          "eventType": "EXECUTED",
+          "message": "Allowed auto approval actions completed.",
+          "timestamp": "2026-07-18T02:26:00.247Z"
+        }
+      ],
+      "createdAt": "2026-07-18T02:26:00.246Z",
+      "updatedAt": "2026-07-18T02:26:00.246Z"
+    },
+    {
+      "requestId": "REQ-KHCN-f773a13b-0b86-413d-8f83-fa6b98dfb27d",
+      "caseId": "case_01_complex_main",
+      "title": "Hybrid home loan with refinance optimization",
+      "product": "HOME_LOAN",
+      "riskTier": "COMPLEX",
+      "approvalRoute": "HYBRID_APPROVAL",
+      "status": "WAITING_HUMAN_APPROVAL",
+      "gateStatus": "CONDITIONAL_PASS",
+      "finalAnswer": "HYBRID_APPROVAL. AI agents recommend CONDITIONAL_PASS at 2250000000 VND/360m, but HIGH actions wait for human_approval_token.",
+      "requiresHumanApproval": true,
+      "customerRequest": {
+        "requestedHomeLoanAmount": 2800000000,
+        "requestedTermMonths": 300,
+        "requestedPromotionalRate": "7.5%",
+        "requestedDtiStress": "75.6%",
+        "requestedLtv": "80.0%"
+      },
+      "systemProposal": {
+        "homeLoanAmount": 2250000000,
+        "maxAffordableHomeLoanAmount": 2250000000,
+        "termMonths": 360,
+        "promotionalRate": "7.5%",
+        "floatingRate": "11.5%",
+        "stressDti": "59.6%",
+        "ltv": "64.3%",
+        "pricing": "Insurance is optional and is not an input to pricing.",
+        "monthlyObligations": [
+          {
+            "scenario": "PROMOTIONAL_12M",
+            "homeEmi": 15700000,
+            "autoLoanEmi": 14400000,
+            "cardObligation": 5000000,
+            "dti": "46.2%"
+          },
+          {
+            "scenario": "FLOATING",
+            "homeEmi": 22300000,
+            "autoLoanEmi": 14400000,
+            "cardObligation": 5000000,
+            "dti": "54.9%"
+          },
+          {
+            "scenario": "STRESS",
+            "homeEmi": 25800000,
+            "autoLoanEmi": 14400000,
+            "cardObligation": 5000000,
+            "dti": "59.6%"
+          }
+        ]
+      },
+      "conditions": [
+        {
+          "conditionId": "MARITAL-COMMON-PROPERTY-001-1",
+          "blocksAt": "CONTRACT_SIGNING",
+          "text": "Collect spouse consent or valid separate-property evidence before contract signing.",
+          "basisRuleId": "MARITAL-COMMON-PROPERTY-001"
+        },
+        {
+          "conditionId": "FUTURE-HOUSING-GUARANTEE-001-2",
+          "blocksAt": "DISBURSEMENT",
+          "text": "Collect missing future-housing project documents before disbursement.",
+          "basisRuleId": "FUTURE-HOUSING-GUARANTEE-001"
+        },
+        {
+          "conditionId": "PDPD-CONSENT-001-3",
+          "blocksAt": "EXTERNAL_DATA_CALL",
+          "text": "External income verification is blocked until INCOME_VERIFICATION_BHXH consent exists.",
+          "basisRuleId": "PDPD-CONSENT-001"
+        }
+      ],
+      "executionActions": [
+        {
+          "tool": "los.create_retail_approval",
+          "sideEffect": "HIGH",
+          "status": "BLOCKED",
+          "requiresApprovalToken": true,
+          "message": "Waiting for human_approval_token."
+        },
+        {
+          "tool": "docs.render_approval_letter",
+          "sideEffect": "HIGH",
+          "status": "BLOCKED",
+          "requiresApprovalToken": true,
+          "message": "Waiting for human_approval_token."
+        },
+        {
+          "tool": "core.create_facility_pending",
+          "sideEffect": "HIGH",
+          "status": "BLOCKED",
+          "requiresApprovalToken": true,
+          "message": "Waiting for human_approval_token."
+        },
+        {
+          "tool": "core.set_condition_precedent",
+          "sideEffect": "HIGH",
+          "status": "BLOCKED",
+          "requiresApprovalToken": true,
+          "message": "Waiting for human_approval_token."
+        },
+        {
+          "tool": "notification.send_customer_checklist",
+          "sideEffect": "HIGH",
+          "status": "BLOCKED",
+          "requiresApprovalToken": true,
+          "message": "Waiting for human_approval_token."
+        },
+        {
+          "tool": "audit.append_event",
+          "sideEffect": "LOW",
+          "status": "APPENDED",
+          "requiresApprovalToken": false,
+          "message": "Hybrid conditional pass audit event appended."
+        }
+      ],
+      "governance": {
+        "tier": "COMPLEX",
+        "approvalRoute": "HYBRID_APPROVAL",
+        "modelCallsUsed": 4,
+        "modelCallsBudget": 8,
+        "estimatedCostUsd": 0.12,
+        "maxCostUsd": 0.25,
+        "rawPiiToLlm": false,
+        "maskedFieldCount": 4,
+        "replayMode": true,
+        "cacheHitCount": 2
+      },
+      "traces": [
+        {
+          "id": "trace-router-3ef20ac2-3719-4fb4-ba1a-6f80f286b43a",
+          "runId": "REQ-KHCN-f773a13b-0b86-413d-8f83-fa6b98dfb27d",
+          "agent": "router",
+          "task": "Route request and choose approval lane",
+          "status": "completed",
+          "summary": "COMPLEX tier selected from risk_router_inputs.",
+          "toolCalls": [
+            {
+              "toolName": "risk_router.route",
+              "input": {
+                "loan_amount": 2800000000,
+                "collateral_type": "FUTURE_APARTMENT",
+                "income_sources_count": 2,
+                "has_unverified_income": false,
+                "has_external_debt": true,
+                "is_future_property": true
+              },
+              "output": {
+                "tier": "COMPLEX",
+                "approval_route": "HYBRID_APPROVAL",
+                "agents_required": [
+                  "CREDIT",
+                  "LEGAL",
+                  "OPERATIONS"
+                ],
+                "rule_id": "SHB-RISK-ROUTER-001"
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.258Z",
+          "completedAt": "2026-07-18T02:26:00.258Z"
+        },
+        {
+          "id": "trace-planner-7a682a16-5d0e-4803-adae-26274a032dcb",
+          "runId": "REQ-KHCN-f773a13b-0b86-413d-8f83-fa6b98dfb27d",
+          "agent": "planner",
+          "task": "Build dependency graph",
+          "status": "completed",
+          "summary": "Planner launched Credit, Legal, Operations, and Compliance Gate paths.",
+          "toolCalls": [
+            {
+              "toolName": "planner.build_dependency_graph",
+              "input": {
+                "case_id": "case_01_complex_main"
+              },
+              "output": {
+                "graph": [
+                  "router",
+                  "planner",
+                  "credit",
+                  "legal",
+                  "compliance_gate",
+                  "operations"
+                ]
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.258Z",
+          "completedAt": "2026-07-18T02:26:00.258Z"
+        },
+        {
+          "id": "trace-credit-cb44d3b9-49b0-4690-886f-772ce5f0fc56",
+          "runId": "REQ-KHCN-f773a13b-0b86-413d-8f83-fa6b98dfb27d",
+          "agent": "credit",
+          "task": "Compute affordability and restructure proposal",
+          "status": "completed",
+          "summary": "Restructured proposal passes at 2250000000 VND over 360 months.",
+          "toolCalls": [
+            {
+              "toolName": "credit.apply_income_haircut",
+              "input": {
+                "income_sources": [
+                  "SALARY_VIA_SHB",
+                  "FREELANCE_UNVERIFIED",
+                  "RENTAL_WITH_CONTRACT"
+                ]
+              },
+              "output": {
+                "qualified_income_monthly": 75900000,
+                "breakdown": [
+                  {
+                    "source": "SALARY_VIA_SHB",
+                    "declared": 55000000,
+                    "haircutRate": 0,
+                    "qualified": 55000000
+                  },
+                  {
+                    "source": "FREELANCE_UNVERIFIED",
+                    "declared": 25000000,
+                    "haircutRate": 0.5,
+                    "qualified": 12500000
+                  },
+                  {
+                    "source": "RENTAL_WITH_CONTRACT",
+                    "declared": 12000000,
+                    "haircutRate": 0.3,
+                    "qualified": 8400000
+                  }
+                ]
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "credit.dti_stress_test",
+              "input": {
+                "home_loan_amount": 2800000000,
+                "term_months": 300,
+                "stress_rate": 0.135
+              },
+              "output": {
+                "home_emi_stress": 32600000,
+                "total_monthly_obligations": 57400000,
+                "dti": 0.7563,
+                "dti_display": "75.6%",
+                "dti_pass": false,
+                "ltv": 0.8,
+                "ltv_display": "80.0%",
+                "ltv_pass": false
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "credit.restructure_optimizer",
+              "input": {
+                "requested_amount": 2800000000,
+                "requested_term_months": 300,
+                "dti_cap": 0.6,
+                "ltv_cap": 0.7
+              },
+              "output": {
+                "proposed_amount": 2250000000,
+                "affordable_home_loan_amount_30y_stress": 2250000000,
+                "proposed_term_months": 360,
+                "dti_stress": 0.5955,
+                "dti_display": "59.6%",
+                "ltv": 0.6429,
+                "ltv_display": "64.3%",
+                "proposal_passes": true,
+                "levers": [
+                  "REFINANCE_EXTERNAL_DEBT",
+                  "REDUCE_CARD_LIMIT",
+                  "EXTEND_TERM",
+                  "REDUCE_LOAN_AMOUNT"
+                ]
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.258Z",
+          "completedAt": "2026-07-18T02:26:00.258Z"
+        },
+        {
+          "id": "trace-legal-1a26bdaa-22f0-4170-aed0-404f92855af3",
+          "runId": "REQ-KHCN-f773a13b-0b86-413d-8f83-fa6b98dfb27d",
+          "agent": "legal",
+          "task": "Apply retail legal and compliance rule pack",
+          "status": "completed",
+          "summary": "4 legal/compliance finding(s) produced from parsed documents and consent registry.",
+          "toolCalls": [
+            {
+              "toolName": "legal.tctd_insurance_tying_001",
+              "input": {
+                "rule_id": "TCTD-INSURANCE-TYING-001"
+              },
+              "output": {
+                "status": "VIOLATION",
+                "severity": "BLOCKER",
+                "blocks_at": "APPROVAL",
+                "calculation": {
+                  "tyingDetected": true,
+                  "rateIfInsurancePurchased": 0.072,
+                  "rateIfInsuranceDeclined": 0.085,
+                  "inputsUsed": [
+                    "customer_segment",
+                    "relationship_years",
+                    "salary_via_bank",
+                    "insurance_purchase"
+                  ]
+                }
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "legal.marital_common_property_001",
+              "input": {
+                "rule_id": "MARITAL-COMMON-PROPERTY-001"
+              },
+              "output": {
+                "status": "PASS_WITH_CONDITION",
+                "severity": "CONDITION",
+                "blocks_at": "CONTRACT_SIGNING",
+                "calculation": {
+                  "requiresSpouseConsent": true
+                }
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "legal.future_housing_guarantee_001",
+              "input": {
+                "rule_id": "FUTURE-HOUSING-GUARANTEE-001"
+              },
+              "output": {
+                "status": "PASS_WITH_CONDITION",
+                "severity": "CONDITION",
+                "blocks_at": "DISBURSEMENT",
+                "calculation": {
+                  "projectEligible": false,
+                  "missingProjectDocuments": [
+                    "bank_guarantee_certificate",
+                    "lien_release_for_unit"
+                  ]
+                }
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "legal.pdpd_consent_001",
+              "input": {
+                "rule_id": "PDPD-CONSENT-001"
+              },
+              "output": {
+                "status": "CONSENT_REQUIRED",
+                "severity": "BLOCKER",
+                "blocks_at": "EXTERNAL_DATA_CALL",
+                "calculation": {
+                  "scopeRequested": "INCOME_VERIFICATION_BHXH",
+                  "consentValid": false,
+                  "outboundCallsMade": 0
+                }
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.258Z",
+          "completedAt": "2026-07-18T02:26:00.259Z"
+        },
+        {
+          "id": "trace-gate-c5202c61-f8b5-4833-84a5-f7ad8300c81a",
+          "runId": "REQ-KHCN-f773a13b-0b86-413d-8f83-fa6b98dfb27d",
+          "agent": "gate",
+          "task": "Run Compliance Gate",
+          "status": "completed",
+          "summary": "Gate returned CONDITIONAL_PASS.",
+          "toolCalls": [
+            {
+              "toolName": "compliance_gate.evaluate",
+              "input": {
+                "credit_pass": true,
+                "legal_findings": [
+                  "TCTD-INSURANCE-TYING-001",
+                  "MARITAL-COMMON-PROPERTY-001",
+                  "FUTURE-HOUSING-GUARANTEE-001",
+                  "PDPD-CONSENT-001"
+                ],
+                "prompt_injection_detected": false
+              },
+              "output": {
+                "gate_status": "CONDITIONAL_PASS",
+                "final_home_loan_amount": 2250000000,
+                "binding_dti_display": "59.6%",
+                "ltv_display": "64.3%"
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.259Z",
+          "completedAt": "2026-07-18T02:26:00.259Z"
+        },
+        {
+          "id": "trace-operations-56d23e41-3829-4a04-ace0-4416ef598500",
+          "runId": "REQ-KHCN-f773a13b-0b86-413d-8f83-fa6b98dfb27d",
+          "agent": "operations",
+          "task": "Prepare execution and enforce approval guard",
+          "status": "blocked",
+          "summary": "HIGH write tools are blocked until human_approval_token exists.",
+          "toolCalls": [
+            {
+              "toolName": "external.verify_income_bhxh",
+              "input": {
+                "consent_scope": "INCOME_VERIFICATION_BHXH"
+              },
+              "output": {
+                "status": "BLOCKED",
+                "error": "ConsentRequired",
+                "outbound_calls_made": 0
+              },
+              "status": "failed"
+            },
+            {
+              "toolName": "los.create_retail_approval",
+              "input": {
+                "approval_route": "HYBRID_APPROVAL",
+                "human_approval_token": null
+              },
+              "output": {
+                "status": "BLOCKED",
+                "error": "Missing human_approval_token"
+              },
+              "status": "failed"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.259Z",
+          "completedAt": "2026-07-18T02:26:00.259Z"
+        }
+      ],
+      "audit": [
+        {
+          "id": "audit-bf5e8681-4293-452c-b41b-70619ac7496b",
+          "requestId": "REQ-KHCN-f773a13b-0b86-413d-8f83-fa6b98dfb27d",
+          "actor": "router",
+          "eventType": "ROUTED",
+          "message": "COMPLEX tier selected.",
+          "timestamp": "2026-07-18T02:26:00.259Z",
+          "metadata": {
+            "approvalRoute": "HYBRID_APPROVAL"
+          }
+        },
+        {
+          "id": "audit-c5662394-b805-4b3b-9d1e-9b8d4be08eb8",
+          "requestId": "REQ-KHCN-f773a13b-0b86-413d-8f83-fa6b98dfb27d",
+          "actor": "credit",
+          "eventType": "CREDIT_CALCULATED",
+          "message": "Credit calculations completed deterministically.",
+          "timestamp": "2026-07-18T02:26:00.259Z",
+          "metadata": {
+            "qualifiedIncome": 75900000,
+            "proposedAmount": 2250000000,
+            "stressDti": "59.6%",
+            "ltv": "64.3%"
+          }
+        },
+        {
+          "id": "audit-782492ad-d1ee-4849-a3ff-e53b47c63a0b",
+          "requestId": "REQ-KHCN-f773a13b-0b86-413d-8f83-fa6b98dfb27d",
+          "actor": "legal",
+          "eventType": "VIOLATION",
+          "message": "TCTD-INSURANCE-TYING-001 fired.",
+          "timestamp": "2026-07-18T02:26:00.259Z",
+          "metadata": {
+            "blocksAt": "APPROVAL"
+          }
+        },
+        {
+          "id": "audit-81daaeeb-ad74-49c5-b354-7eae2077c1b6",
+          "requestId": "REQ-KHCN-f773a13b-0b86-413d-8f83-fa6b98dfb27d",
+          "actor": "legal",
+          "eventType": "PASS_WITH_CONDITION",
+          "message": "MARITAL-COMMON-PROPERTY-001 fired.",
+          "timestamp": "2026-07-18T02:26:00.259Z",
+          "metadata": {
+            "blocksAt": "CONTRACT_SIGNING"
+          }
+        },
+        {
+          "id": "audit-e6b8a5ff-8c89-4772-a8dd-3f1f7dc1e119",
+          "requestId": "REQ-KHCN-f773a13b-0b86-413d-8f83-fa6b98dfb27d",
+          "actor": "legal",
+          "eventType": "PASS_WITH_CONDITION",
+          "message": "FUTURE-HOUSING-GUARANTEE-001 fired.",
+          "timestamp": "2026-07-18T02:26:00.259Z",
+          "metadata": {
+            "blocksAt": "DISBURSEMENT"
+          }
+        },
+        {
+          "id": "audit-6b44a953-1525-4915-bffc-198ad2c64191",
+          "requestId": "REQ-KHCN-f773a13b-0b86-413d-8f83-fa6b98dfb27d",
+          "actor": "legal",
+          "eventType": "CONSENT_REQUIRED",
+          "message": "PDPD-CONSENT-001 fired.",
+          "timestamp": "2026-07-18T02:26:00.259Z",
+          "metadata": {
+            "blocksAt": "EXTERNAL_DATA_CALL"
+          }
+        },
+        {
+          "id": "audit-ec52e06b-1cd0-4f1e-972c-4e82e8e8371e",
+          "requestId": "REQ-KHCN-f773a13b-0b86-413d-8f83-fa6b98dfb27d",
+          "actor": "gate",
+          "eventType": "CONDITIONAL_PASS",
+          "message": "Compliance gate returned CONDITIONAL_PASS.",
+          "timestamp": "2026-07-18T02:26:00.259Z"
+        }
+      ],
+      "createdAt": "2026-07-18T02:26:00.256Z",
+      "updatedAt": "2026-07-18T02:26:00.256Z"
+    },
+    {
+      "requestId": "REQ-KHCN-6d076bdd-54a1-4cd8-aa75-136fb2eec6c1",
+      "caseId": "case_01_complex_main",
+      "title": "Hybrid home loan with refinance optimization",
+      "product": "HOME_LOAN",
+      "riskTier": "COMPLEX",
+      "approvalRoute": "HYBRID_APPROVAL",
+      "status": "WAITING_HUMAN_APPROVAL",
+      "gateStatus": "CONDITIONAL_PASS",
+      "finalAnswer": "HYBRID_APPROVAL. AI agents recommend CONDITIONAL_PASS at 2250000000 VND/360m, but HIGH actions wait for human_approval_token.",
+      "requiresHumanApproval": true,
+      "customerRequest": {
+        "requestedHomeLoanAmount": 2800000000,
+        "requestedTermMonths": 300,
+        "requestedPromotionalRate": "7.5%",
+        "requestedDtiStress": "75.6%",
+        "requestedLtv": "80.0%"
+      },
+      "systemProposal": {
+        "homeLoanAmount": 2250000000,
+        "maxAffordableHomeLoanAmount": 2250000000,
+        "termMonths": 360,
+        "promotionalRate": "7.5%",
+        "floatingRate": "11.5%",
+        "stressDti": "59.6%",
+        "ltv": "64.3%",
+        "pricing": "Insurance is optional and is not an input to pricing.",
+        "monthlyObligations": [
+          {
+            "scenario": "PROMOTIONAL_12M",
+            "homeEmi": 15700000,
+            "autoLoanEmi": 14400000,
+            "cardObligation": 5000000,
+            "dti": "46.2%"
+          },
+          {
+            "scenario": "FLOATING",
+            "homeEmi": 22300000,
+            "autoLoanEmi": 14400000,
+            "cardObligation": 5000000,
+            "dti": "54.9%"
+          },
+          {
+            "scenario": "STRESS",
+            "homeEmi": 25800000,
+            "autoLoanEmi": 14400000,
+            "cardObligation": 5000000,
+            "dti": "59.6%"
+          }
+        ]
+      },
+      "conditions": [
+        {
+          "conditionId": "MARITAL-COMMON-PROPERTY-001-1",
+          "blocksAt": "CONTRACT_SIGNING",
+          "text": "Collect spouse consent or valid separate-property evidence before contract signing.",
+          "basisRuleId": "MARITAL-COMMON-PROPERTY-001"
+        },
+        {
+          "conditionId": "FUTURE-HOUSING-GUARANTEE-001-2",
+          "blocksAt": "DISBURSEMENT",
+          "text": "Collect missing future-housing project documents before disbursement.",
+          "basisRuleId": "FUTURE-HOUSING-GUARANTEE-001"
+        },
+        {
+          "conditionId": "PDPD-CONSENT-001-3",
+          "blocksAt": "EXTERNAL_DATA_CALL",
+          "text": "External income verification is blocked until INCOME_VERIFICATION_BHXH consent exists.",
+          "basisRuleId": "PDPD-CONSENT-001"
+        }
+      ],
+      "executionActions": [
+        {
+          "tool": "los.create_retail_approval",
+          "sideEffect": "HIGH",
+          "status": "BLOCKED",
+          "requiresApprovalToken": true,
+          "message": "Waiting for human_approval_token."
+        },
+        {
+          "tool": "docs.render_approval_letter",
+          "sideEffect": "HIGH",
+          "status": "BLOCKED",
+          "requiresApprovalToken": true,
+          "message": "Waiting for human_approval_token."
+        },
+        {
+          "tool": "core.create_facility_pending",
+          "sideEffect": "HIGH",
+          "status": "BLOCKED",
+          "requiresApprovalToken": true,
+          "message": "Waiting for human_approval_token."
+        },
+        {
+          "tool": "core.set_condition_precedent",
+          "sideEffect": "HIGH",
+          "status": "BLOCKED",
+          "requiresApprovalToken": true,
+          "message": "Waiting for human_approval_token."
+        },
+        {
+          "tool": "notification.send_customer_checklist",
+          "sideEffect": "HIGH",
+          "status": "BLOCKED",
+          "requiresApprovalToken": true,
+          "message": "Waiting for human_approval_token."
+        },
+        {
+          "tool": "audit.append_event",
+          "sideEffect": "LOW",
+          "status": "APPENDED",
+          "requiresApprovalToken": false,
+          "message": "Hybrid conditional pass audit event appended."
+        }
+      ],
+      "governance": {
+        "tier": "COMPLEX",
+        "approvalRoute": "HYBRID_APPROVAL",
+        "modelCallsUsed": 4,
+        "modelCallsBudget": 8,
+        "estimatedCostUsd": 0.12,
+        "maxCostUsd": 0.25,
+        "rawPiiToLlm": false,
+        "maskedFieldCount": 4,
+        "replayMode": true,
+        "cacheHitCount": 2
+      },
+      "traces": [
+        {
+          "id": "trace-router-c19ce6ae-4228-4c8d-ada6-75830159e560",
+          "runId": "REQ-KHCN-6d076bdd-54a1-4cd8-aa75-136fb2eec6c1",
+          "agent": "router",
+          "task": "Route request and choose approval lane",
+          "status": "completed",
+          "summary": "COMPLEX tier selected from risk_router_inputs.",
+          "toolCalls": [
+            {
+              "toolName": "risk_router.route",
+              "input": {
+                "loan_amount": 2800000000,
+                "collateral_type": "FUTURE_APARTMENT",
+                "income_sources_count": 2,
+                "has_unverified_income": false,
+                "has_external_debt": true,
+                "is_future_property": true
+              },
+              "output": {
+                "tier": "COMPLEX",
+                "approval_route": "HYBRID_APPROVAL",
+                "agents_required": [
+                  "CREDIT",
+                  "LEGAL",
+                  "OPERATIONS"
+                ],
+                "rule_id": "SHB-RISK-ROUTER-001"
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.265Z",
+          "completedAt": "2026-07-18T02:26:00.265Z"
+        },
+        {
+          "id": "trace-planner-bae4c384-fe18-4294-a5e4-a17337a6b9e9",
+          "runId": "REQ-KHCN-6d076bdd-54a1-4cd8-aa75-136fb2eec6c1",
+          "agent": "planner",
+          "task": "Build dependency graph",
+          "status": "completed",
+          "summary": "Planner launched Credit, Legal, Operations, and Compliance Gate paths.",
+          "toolCalls": [
+            {
+              "toolName": "planner.build_dependency_graph",
+              "input": {
+                "case_id": "case_01_complex_main"
+              },
+              "output": {
+                "graph": [
+                  "router",
+                  "planner",
+                  "credit",
+                  "legal",
+                  "compliance_gate",
+                  "operations"
+                ]
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.265Z",
+          "completedAt": "2026-07-18T02:26:00.265Z"
+        },
+        {
+          "id": "trace-credit-d2c47e35-4b18-4a47-b3c9-05ac585bb8db",
+          "runId": "REQ-KHCN-6d076bdd-54a1-4cd8-aa75-136fb2eec6c1",
+          "agent": "credit",
+          "task": "Compute affordability and restructure proposal",
+          "status": "completed",
+          "summary": "Restructured proposal passes at 2250000000 VND over 360 months.",
+          "toolCalls": [
+            {
+              "toolName": "credit.apply_income_haircut",
+              "input": {
+                "income_sources": [
+                  "SALARY_VIA_SHB",
+                  "FREELANCE_UNVERIFIED",
+                  "RENTAL_WITH_CONTRACT"
+                ]
+              },
+              "output": {
+                "qualified_income_monthly": 75900000,
+                "breakdown": [
+                  {
+                    "source": "SALARY_VIA_SHB",
+                    "declared": 55000000,
+                    "haircutRate": 0,
+                    "qualified": 55000000
+                  },
+                  {
+                    "source": "FREELANCE_UNVERIFIED",
+                    "declared": 25000000,
+                    "haircutRate": 0.5,
+                    "qualified": 12500000
+                  },
+                  {
+                    "source": "RENTAL_WITH_CONTRACT",
+                    "declared": 12000000,
+                    "haircutRate": 0.3,
+                    "qualified": 8400000
+                  }
+                ]
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "credit.dti_stress_test",
+              "input": {
+                "home_loan_amount": 2800000000,
+                "term_months": 300,
+                "stress_rate": 0.135
+              },
+              "output": {
+                "home_emi_stress": 32600000,
+                "total_monthly_obligations": 57400000,
+                "dti": 0.7563,
+                "dti_display": "75.6%",
+                "dti_pass": false,
+                "ltv": 0.8,
+                "ltv_display": "80.0%",
+                "ltv_pass": false
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "credit.restructure_optimizer",
+              "input": {
+                "requested_amount": 2800000000,
+                "requested_term_months": 300,
+                "dti_cap": 0.6,
+                "ltv_cap": 0.7
+              },
+              "output": {
+                "proposed_amount": 2250000000,
+                "affordable_home_loan_amount_30y_stress": 2250000000,
+                "proposed_term_months": 360,
+                "dti_stress": 0.5955,
+                "dti_display": "59.6%",
+                "ltv": 0.6429,
+                "ltv_display": "64.3%",
+                "proposal_passes": true,
+                "levers": [
+                  "REFINANCE_EXTERNAL_DEBT",
+                  "REDUCE_CARD_LIMIT",
+                  "EXTEND_TERM",
+                  "REDUCE_LOAN_AMOUNT"
+                ]
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.265Z",
+          "completedAt": "2026-07-18T02:26:00.265Z"
+        },
+        {
+          "id": "trace-legal-40677784-9b0f-4c48-b1c9-7a679934452b",
+          "runId": "REQ-KHCN-6d076bdd-54a1-4cd8-aa75-136fb2eec6c1",
+          "agent": "legal",
+          "task": "Apply retail legal and compliance rule pack",
+          "status": "completed",
+          "summary": "4 legal/compliance finding(s) produced from parsed documents and consent registry.",
+          "toolCalls": [
+            {
+              "toolName": "legal.tctd_insurance_tying_001",
+              "input": {
+                "rule_id": "TCTD-INSURANCE-TYING-001"
+              },
+              "output": {
+                "status": "VIOLATION",
+                "severity": "BLOCKER",
+                "blocks_at": "APPROVAL",
+                "calculation": {
+                  "tyingDetected": true,
+                  "rateIfInsurancePurchased": 0.072,
+                  "rateIfInsuranceDeclined": 0.085,
+                  "inputsUsed": [
+                    "customer_segment",
+                    "relationship_years",
+                    "salary_via_bank",
+                    "insurance_purchase"
+                  ]
+                }
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "legal.marital_common_property_001",
+              "input": {
+                "rule_id": "MARITAL-COMMON-PROPERTY-001"
+              },
+              "output": {
+                "status": "PASS_WITH_CONDITION",
+                "severity": "CONDITION",
+                "blocks_at": "CONTRACT_SIGNING",
+                "calculation": {
+                  "requiresSpouseConsent": true
+                }
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "legal.future_housing_guarantee_001",
+              "input": {
+                "rule_id": "FUTURE-HOUSING-GUARANTEE-001"
+              },
+              "output": {
+                "status": "PASS_WITH_CONDITION",
+                "severity": "CONDITION",
+                "blocks_at": "DISBURSEMENT",
+                "calculation": {
+                  "projectEligible": false,
+                  "missingProjectDocuments": [
+                    "bank_guarantee_certificate",
+                    "lien_release_for_unit"
+                  ]
+                }
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "legal.pdpd_consent_001",
+              "input": {
+                "rule_id": "PDPD-CONSENT-001"
+              },
+              "output": {
+                "status": "CONSENT_REQUIRED",
+                "severity": "BLOCKER",
+                "blocks_at": "EXTERNAL_DATA_CALL",
+                "calculation": {
+                  "scopeRequested": "INCOME_VERIFICATION_BHXH",
+                  "consentValid": false,
+                  "outboundCallsMade": 0
+                }
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.265Z",
+          "completedAt": "2026-07-18T02:26:00.265Z"
+        },
+        {
+          "id": "trace-gate-b2d4f11d-1b8a-4882-936c-9b2b18dcec60",
+          "runId": "REQ-KHCN-6d076bdd-54a1-4cd8-aa75-136fb2eec6c1",
+          "agent": "gate",
+          "task": "Run Compliance Gate",
+          "status": "completed",
+          "summary": "Gate returned CONDITIONAL_PASS.",
+          "toolCalls": [
+            {
+              "toolName": "compliance_gate.evaluate",
+              "input": {
+                "credit_pass": true,
+                "legal_findings": [
+                  "TCTD-INSURANCE-TYING-001",
+                  "MARITAL-COMMON-PROPERTY-001",
+                  "FUTURE-HOUSING-GUARANTEE-001",
+                  "PDPD-CONSENT-001"
+                ],
+                "prompt_injection_detected": false
+              },
+              "output": {
+                "gate_status": "CONDITIONAL_PASS",
+                "final_home_loan_amount": 2250000000,
+                "binding_dti_display": "59.6%",
+                "ltv_display": "64.3%"
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.265Z",
+          "completedAt": "2026-07-18T02:26:00.265Z"
+        },
+        {
+          "id": "trace-operations-59a1c33b-9b19-44d7-bf37-2a682302c4f2",
+          "runId": "REQ-KHCN-6d076bdd-54a1-4cd8-aa75-136fb2eec6c1",
+          "agent": "operations",
+          "task": "Prepare execution and enforce approval guard",
+          "status": "blocked",
+          "summary": "HIGH write tools are blocked until human_approval_token exists.",
+          "toolCalls": [
+            {
+              "toolName": "external.verify_income_bhxh",
+              "input": {
+                "consent_scope": "INCOME_VERIFICATION_BHXH"
+              },
+              "output": {
+                "status": "BLOCKED",
+                "error": "ConsentRequired",
+                "outbound_calls_made": 0
+              },
+              "status": "failed"
+            },
+            {
+              "toolName": "los.create_retail_approval",
+              "input": {
+                "approval_route": "HYBRID_APPROVAL",
+                "human_approval_token": null
+              },
+              "output": {
+                "status": "BLOCKED",
+                "error": "Missing human_approval_token"
+              },
+              "status": "failed"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.265Z",
+          "completedAt": "2026-07-18T02:26:00.265Z"
+        }
+      ],
+      "audit": [
+        {
+          "id": "audit-bbd6c488-0d2a-4b50-9710-2b66f1c6980c",
+          "requestId": "REQ-KHCN-6d076bdd-54a1-4cd8-aa75-136fb2eec6c1",
+          "actor": "router",
+          "eventType": "ROUTED",
+          "message": "COMPLEX tier selected.",
+          "timestamp": "2026-07-18T02:26:00.265Z",
+          "metadata": {
+            "approvalRoute": "HYBRID_APPROVAL"
+          }
+        },
+        {
+          "id": "audit-adf37d61-ee84-440b-98f9-044bfc2a7410",
+          "requestId": "REQ-KHCN-6d076bdd-54a1-4cd8-aa75-136fb2eec6c1",
+          "actor": "credit",
+          "eventType": "CREDIT_CALCULATED",
+          "message": "Credit calculations completed deterministically.",
+          "timestamp": "2026-07-18T02:26:00.265Z",
+          "metadata": {
+            "qualifiedIncome": 75900000,
+            "proposedAmount": 2250000000,
+            "stressDti": "59.6%",
+            "ltv": "64.3%"
+          }
+        },
+        {
+          "id": "audit-a3006d27-dd80-493f-8c5b-d12ebfbf5e54",
+          "requestId": "REQ-KHCN-6d076bdd-54a1-4cd8-aa75-136fb2eec6c1",
+          "actor": "legal",
+          "eventType": "VIOLATION",
+          "message": "TCTD-INSURANCE-TYING-001 fired.",
+          "timestamp": "2026-07-18T02:26:00.265Z",
+          "metadata": {
+            "blocksAt": "APPROVAL"
+          }
+        },
+        {
+          "id": "audit-59918e8f-57f7-438e-8a5a-3402e4289263",
+          "requestId": "REQ-KHCN-6d076bdd-54a1-4cd8-aa75-136fb2eec6c1",
+          "actor": "legal",
+          "eventType": "PASS_WITH_CONDITION",
+          "message": "MARITAL-COMMON-PROPERTY-001 fired.",
+          "timestamp": "2026-07-18T02:26:00.265Z",
+          "metadata": {
+            "blocksAt": "CONTRACT_SIGNING"
+          }
+        },
+        {
+          "id": "audit-ced8dbda-352a-4590-bc78-72ab3537b3a0",
+          "requestId": "REQ-KHCN-6d076bdd-54a1-4cd8-aa75-136fb2eec6c1",
+          "actor": "legal",
+          "eventType": "PASS_WITH_CONDITION",
+          "message": "FUTURE-HOUSING-GUARANTEE-001 fired.",
+          "timestamp": "2026-07-18T02:26:00.265Z",
+          "metadata": {
+            "blocksAt": "DISBURSEMENT"
+          }
+        },
+        {
+          "id": "audit-161855d7-7d05-43ba-ba06-9dcf3f9969fd",
+          "requestId": "REQ-KHCN-6d076bdd-54a1-4cd8-aa75-136fb2eec6c1",
+          "actor": "legal",
+          "eventType": "CONSENT_REQUIRED",
+          "message": "PDPD-CONSENT-001 fired.",
+          "timestamp": "2026-07-18T02:26:00.265Z",
+          "metadata": {
+            "blocksAt": "EXTERNAL_DATA_CALL"
+          }
+        },
+        {
+          "id": "audit-ef383584-139a-4daf-b97c-e41c23745fda",
+          "requestId": "REQ-KHCN-6d076bdd-54a1-4cd8-aa75-136fb2eec6c1",
+          "actor": "gate",
+          "eventType": "CONDITIONAL_PASS",
+          "message": "Compliance gate returned CONDITIONAL_PASS.",
+          "timestamp": "2026-07-18T02:26:00.265Z"
+        }
+      ],
+      "createdAt": "2026-07-18T02:26:00.265Z",
+      "updatedAt": "2026-07-18T02:26:00.265Z"
+    },
+    {
+      "requestId": "REQ-KHCN-81f59f34-cc4d-49db-8836-4196312c32bd",
+      "caseId": "case_01_complex_main",
+      "title": "Hybrid home loan with refinance optimization",
+      "product": "HOME_LOAN",
+      "riskTier": "COMPLEX",
+      "approvalRoute": "HYBRID_APPROVAL",
+      "status": "COMPLETED",
+      "gateStatus": "CONDITIONAL_PASS",
+      "finalAnswer": "HYBRID_APPROVAL completed. Human reviewer approved the conditional pass and controlled LOS/Core actions executed.",
+      "requiresHumanApproval": false,
+      "customerRequest": {
+        "requestedHomeLoanAmount": 2800000000,
+        "requestedTermMonths": 300,
+        "requestedPromotionalRate": "7.5%",
+        "requestedDtiStress": "75.6%",
+        "requestedLtv": "80.0%"
+      },
+      "systemProposal": {
+        "homeLoanAmount": 2250000000,
+        "maxAffordableHomeLoanAmount": 2250000000,
+        "termMonths": 360,
+        "promotionalRate": "7.5%",
+        "floatingRate": "11.5%",
+        "stressDti": "59.6%",
+        "ltv": "64.3%",
+        "pricing": "Insurance is optional and is not an input to pricing.",
+        "monthlyObligations": [
+          {
+            "scenario": "PROMOTIONAL_12M",
+            "homeEmi": 15700000,
+            "autoLoanEmi": 14400000,
+            "cardObligation": 5000000,
+            "dti": "46.2%"
+          },
+          {
+            "scenario": "FLOATING",
+            "homeEmi": 22300000,
+            "autoLoanEmi": 14400000,
+            "cardObligation": 5000000,
+            "dti": "54.9%"
+          },
+          {
+            "scenario": "STRESS",
+            "homeEmi": 25800000,
+            "autoLoanEmi": 14400000,
+            "cardObligation": 5000000,
+            "dti": "59.6%"
+          }
+        ]
+      },
+      "conditions": [
+        {
+          "conditionId": "MARITAL-COMMON-PROPERTY-001-1",
+          "blocksAt": "CONTRACT_SIGNING",
+          "text": "Collect spouse consent or valid separate-property evidence before contract signing.",
+          "basisRuleId": "MARITAL-COMMON-PROPERTY-001"
+        },
+        {
+          "conditionId": "FUTURE-HOUSING-GUARANTEE-001-2",
+          "blocksAt": "DISBURSEMENT",
+          "text": "Collect missing future-housing project documents before disbursement.",
+          "basisRuleId": "FUTURE-HOUSING-GUARANTEE-001"
+        },
+        {
+          "conditionId": "PDPD-CONSENT-001-3",
+          "blocksAt": "EXTERNAL_DATA_CALL",
+          "text": "External income verification is blocked until INCOME_VERIFICATION_BHXH consent exists.",
+          "basisRuleId": "PDPD-CONSENT-001"
+        }
+      ],
+      "executionActions": [
+        {
+          "tool": "los.create_retail_approval",
+          "sideEffect": "HIGH",
+          "status": "CREATED",
+          "requiresApprovalToken": true,
+          "message": "Hybrid LOS approval created after human approval."
+        },
+        {
+          "tool": "docs.render_approval_letter",
+          "sideEffect": "HIGH",
+          "status": "CREATED",
+          "requiresApprovalToken": true,
+          "message": "Approval letter rendered after human approval."
+        },
+        {
+          "tool": "core.create_facility_pending",
+          "sideEffect": "HIGH",
+          "status": "CREATED",
+          "requiresApprovalToken": true,
+          "message": "Pending facility created after human approval."
+        },
+        {
+          "tool": "core.set_condition_precedent",
+          "sideEffect": "HIGH",
+          "status": "CREATED",
+          "requiresApprovalToken": true,
+          "message": "Condition precedents stored after human approval."
+        },
+        {
+          "tool": "notification.send_customer_checklist",
+          "sideEffect": "HIGH",
+          "status": "SENT",
+          "requiresApprovalToken": true,
+          "message": "Customer checklist sent after human approval."
+        },
+        {
+          "tool": "audit.append_event",
+          "sideEffect": "LOW",
+          "status": "APPENDED",
+          "requiresApprovalToken": false,
+          "message": "Human approval and execution audit event appended."
+        }
+      ],
+      "governance": {
+        "tier": "COMPLEX",
+        "approvalRoute": "HYBRID_APPROVAL",
+        "modelCallsUsed": 4,
+        "modelCallsBudget": 8,
+        "estimatedCostUsd": 0.12,
+        "maxCostUsd": 0.25,
+        "rawPiiToLlm": false,
+        "maskedFieldCount": 4,
+        "replayMode": true,
+        "cacheHitCount": 2
+      },
+      "traces": [
+        {
+          "id": "trace-router-554b8314-6cde-450a-bab5-edf9bc11b476",
+          "runId": "REQ-KHCN-81f59f34-cc4d-49db-8836-4196312c32bd",
+          "agent": "router",
+          "task": "Route request and choose approval lane",
+          "status": "completed",
+          "summary": "COMPLEX tier selected from risk_router_inputs.",
+          "toolCalls": [
+            {
+              "toolName": "risk_router.route",
+              "input": {
+                "loan_amount": 2800000000,
+                "collateral_type": "FUTURE_APARTMENT",
+                "income_sources_count": 2,
+                "has_unverified_income": false,
+                "has_external_debt": true,
+                "is_future_property": true
+              },
+              "output": {
+                "tier": "COMPLEX",
+                "approval_route": "HYBRID_APPROVAL",
+                "agents_required": [
+                  "CREDIT",
+                  "LEGAL",
+                  "OPERATIONS"
+                ],
+                "rule_id": "SHB-RISK-ROUTER-001"
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.279Z",
+          "completedAt": "2026-07-18T02:26:00.279Z"
+        },
+        {
+          "id": "trace-planner-d017e2ad-f5c2-4525-bff8-d3eb4bf64f63",
+          "runId": "REQ-KHCN-81f59f34-cc4d-49db-8836-4196312c32bd",
+          "agent": "planner",
+          "task": "Build dependency graph",
+          "status": "completed",
+          "summary": "Planner launched Credit, Legal, Operations, and Compliance Gate paths.",
+          "toolCalls": [
+            {
+              "toolName": "planner.build_dependency_graph",
+              "input": {
+                "case_id": "case_01_complex_main"
+              },
+              "output": {
+                "graph": [
+                  "router",
+                  "planner",
+                  "credit",
+                  "legal",
+                  "compliance_gate",
+                  "operations"
+                ]
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.279Z",
+          "completedAt": "2026-07-18T02:26:00.279Z"
+        },
+        {
+          "id": "trace-credit-70f71997-61f2-4040-8647-2d6f308b0b00",
+          "runId": "REQ-KHCN-81f59f34-cc4d-49db-8836-4196312c32bd",
+          "agent": "credit",
+          "task": "Compute affordability and restructure proposal",
+          "status": "completed",
+          "summary": "Restructured proposal passes at 2250000000 VND over 360 months.",
+          "toolCalls": [
+            {
+              "toolName": "credit.apply_income_haircut",
+              "input": {
+                "income_sources": [
+                  "SALARY_VIA_SHB",
+                  "FREELANCE_UNVERIFIED",
+                  "RENTAL_WITH_CONTRACT"
+                ]
+              },
+              "output": {
+                "qualified_income_monthly": 75900000,
+                "breakdown": [
+                  {
+                    "source": "SALARY_VIA_SHB",
+                    "declared": 55000000,
+                    "haircutRate": 0,
+                    "qualified": 55000000
+                  },
+                  {
+                    "source": "FREELANCE_UNVERIFIED",
+                    "declared": 25000000,
+                    "haircutRate": 0.5,
+                    "qualified": 12500000
+                  },
+                  {
+                    "source": "RENTAL_WITH_CONTRACT",
+                    "declared": 12000000,
+                    "haircutRate": 0.3,
+                    "qualified": 8400000
+                  }
+                ]
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "credit.dti_stress_test",
+              "input": {
+                "home_loan_amount": 2800000000,
+                "term_months": 300,
+                "stress_rate": 0.135
+              },
+              "output": {
+                "home_emi_stress": 32600000,
+                "total_monthly_obligations": 57400000,
+                "dti": 0.7563,
+                "dti_display": "75.6%",
+                "dti_pass": false,
+                "ltv": 0.8,
+                "ltv_display": "80.0%",
+                "ltv_pass": false
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "credit.restructure_optimizer",
+              "input": {
+                "requested_amount": 2800000000,
+                "requested_term_months": 300,
+                "dti_cap": 0.6,
+                "ltv_cap": 0.7
+              },
+              "output": {
+                "proposed_amount": 2250000000,
+                "affordable_home_loan_amount_30y_stress": 2250000000,
+                "proposed_term_months": 360,
+                "dti_stress": 0.5955,
+                "dti_display": "59.6%",
+                "ltv": 0.6429,
+                "ltv_display": "64.3%",
+                "proposal_passes": true,
+                "levers": [
+                  "REFINANCE_EXTERNAL_DEBT",
+                  "REDUCE_CARD_LIMIT",
+                  "EXTEND_TERM",
+                  "REDUCE_LOAN_AMOUNT"
+                ]
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.279Z",
+          "completedAt": "2026-07-18T02:26:00.279Z"
+        },
+        {
+          "id": "trace-legal-f830ec0a-4d6d-4f8c-856f-4373d0273462",
+          "runId": "REQ-KHCN-81f59f34-cc4d-49db-8836-4196312c32bd",
+          "agent": "legal",
+          "task": "Apply retail legal and compliance rule pack",
+          "status": "completed",
+          "summary": "4 legal/compliance finding(s) produced from parsed documents and consent registry.",
+          "toolCalls": [
+            {
+              "toolName": "legal.tctd_insurance_tying_001",
+              "input": {
+                "rule_id": "TCTD-INSURANCE-TYING-001"
+              },
+              "output": {
+                "status": "VIOLATION",
+                "severity": "BLOCKER",
+                "blocks_at": "APPROVAL",
+                "calculation": {
+                  "tyingDetected": true,
+                  "rateIfInsurancePurchased": 0.072,
+                  "rateIfInsuranceDeclined": 0.085,
+                  "inputsUsed": [
+                    "customer_segment",
+                    "relationship_years",
+                    "salary_via_bank",
+                    "insurance_purchase"
+                  ]
+                }
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "legal.marital_common_property_001",
+              "input": {
+                "rule_id": "MARITAL-COMMON-PROPERTY-001"
+              },
+              "output": {
+                "status": "PASS_WITH_CONDITION",
+                "severity": "CONDITION",
+                "blocks_at": "CONTRACT_SIGNING",
+                "calculation": {
+                  "requiresSpouseConsent": true
+                }
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "legal.future_housing_guarantee_001",
+              "input": {
+                "rule_id": "FUTURE-HOUSING-GUARANTEE-001"
+              },
+              "output": {
+                "status": "PASS_WITH_CONDITION",
+                "severity": "CONDITION",
+                "blocks_at": "DISBURSEMENT",
+                "calculation": {
+                  "projectEligible": false,
+                  "missingProjectDocuments": [
+                    "bank_guarantee_certificate",
+                    "lien_release_for_unit"
+                  ]
+                }
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "legal.pdpd_consent_001",
+              "input": {
+                "rule_id": "PDPD-CONSENT-001"
+              },
+              "output": {
+                "status": "CONSENT_REQUIRED",
+                "severity": "BLOCKER",
+                "blocks_at": "EXTERNAL_DATA_CALL",
+                "calculation": {
+                  "scopeRequested": "INCOME_VERIFICATION_BHXH",
+                  "consentValid": false,
+                  "outboundCallsMade": 0
+                }
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.279Z",
+          "completedAt": "2026-07-18T02:26:00.279Z"
+        },
+        {
+          "id": "trace-gate-efe84bb7-290f-41af-9e15-7012eb81f3b7",
+          "runId": "REQ-KHCN-81f59f34-cc4d-49db-8836-4196312c32bd",
+          "agent": "gate",
+          "task": "Run Compliance Gate",
+          "status": "completed",
+          "summary": "Gate returned CONDITIONAL_PASS.",
+          "toolCalls": [
+            {
+              "toolName": "compliance_gate.evaluate",
+              "input": {
+                "credit_pass": true,
+                "legal_findings": [
+                  "TCTD-INSURANCE-TYING-001",
+                  "MARITAL-COMMON-PROPERTY-001",
+                  "FUTURE-HOUSING-GUARANTEE-001",
+                  "PDPD-CONSENT-001"
+                ],
+                "prompt_injection_detected": false
+              },
+              "output": {
+                "gate_status": "CONDITIONAL_PASS",
+                "final_home_loan_amount": 2250000000,
+                "binding_dti_display": "59.6%",
+                "ltv_display": "64.3%"
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.279Z",
+          "completedAt": "2026-07-18T02:26:00.279Z"
+        },
+        {
+          "id": "trace-operations-8ff059e4-6eed-43cd-b955-04ac403de01f",
+          "runId": "REQ-KHCN-81f59f34-cc4d-49db-8836-4196312c32bd",
+          "agent": "operations",
+          "task": "Prepare execution and enforce approval guard",
+          "status": "blocked",
+          "summary": "HIGH write tools are blocked until human_approval_token exists.",
+          "toolCalls": [
+            {
+              "toolName": "external.verify_income_bhxh",
+              "input": {
+                "consent_scope": "INCOME_VERIFICATION_BHXH"
+              },
+              "output": {
+                "status": "BLOCKED",
+                "error": "ConsentRequired",
+                "outbound_calls_made": 0
+              },
+              "status": "failed"
+            },
+            {
+              "toolName": "los.create_retail_approval",
+              "input": {
+                "approval_route": "HYBRID_APPROVAL",
+                "human_approval_token": null
+              },
+              "output": {
+                "status": "BLOCKED",
+                "error": "Missing human_approval_token"
+              },
+              "status": "failed"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.279Z",
+          "completedAt": "2026-07-18T02:26:00.279Z"
+        },
+        {
+          "id": "trace-operations-2bb925c4-9ce1-4b83-ae0c-894f4ed6e029",
+          "runId": "REQ-KHCN-81f59f34-cc4d-49db-8836-4196312c32bd",
+          "agent": "operations",
+          "task": "Execute hybrid actions after human approval",
+          "status": "completed",
+          "summary": "Human approval token received. Guarded execution completed.",
+          "toolCalls": [
+            {
+              "toolName": "saga.prepare_execution_plan",
+              "input": {
+                "human_approval_token": "human-token-928ee4b0-10ba-4cd3-8d98-27affdbf2afe",
+                "steps": [
+                  "los.create_retail_approval",
+                  "core.create_facility_pending",
+                  "core.set_condition_precedent"
+                ]
+              },
+              "output": {
+                "status": "PREPARED",
+                "compensation_plan": [
+                  "core.cancel_facility_pending",
+                  "los.void_retail_approval",
+                  "audit.append_compensation_event"
+                ]
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "los.create_retail_approval",
+              "input": {
+                "human_approval_token": "human-token-928ee4b0-10ba-4cd3-8d98-27affdbf2afe",
+                "gate_status": "CONDITIONAL_PASS"
+              },
+              "output": {
+                "status": "CREATED",
+                "approval_id": "LOS-HYBRID-fa2fc790-0d4a-4bd4-bdef-1d439b86f8d7"
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "core.create_facility_pending",
+              "input": {
+                "human_approval_token": "human-token-928ee4b0-10ba-4cd3-8d98-27affdbf2afe",
+                "amount": 2250000000
+              },
+              "output": {
+                "status": "CREATED",
+                "facility_status": "PENDING_CONDITIONS"
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "core.set_condition_precedent",
+              "input": {
+                "human_approval_token": "human-token-928ee4b0-10ba-4cd3-8d98-27affdbf2afe",
+                "condition_count": 3
+              },
+              "output": {
+                "status": "CREATED",
+                "condition_count": 3
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "notification.send_customer_checklist",
+              "input": {
+                "human_approval_token": "human-token-928ee4b0-10ba-4cd3-8d98-27affdbf2afe"
+              },
+              "output": {
+                "status": "SENT"
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "saga.commit_execution_plan",
+              "input": {
+                "human_approval_token": "human-token-928ee4b0-10ba-4cd3-8d98-27affdbf2afe",
+                "condition_count": 3
+              },
+              "output": {
+                "status": "COMMITTED",
+                "rollback_required": false
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.287Z",
+          "completedAt": "2026-07-18T02:26:00.287Z"
+        }
+      ],
+      "audit": [
+        {
+          "id": "audit-47f3366d-b3c1-479f-ae34-8fdb008125ef",
+          "requestId": "REQ-KHCN-81f59f34-cc4d-49db-8836-4196312c32bd",
+          "actor": "router",
+          "eventType": "ROUTED",
+          "message": "COMPLEX tier selected.",
+          "timestamp": "2026-07-18T02:26:00.279Z",
+          "metadata": {
+            "approvalRoute": "HYBRID_APPROVAL"
+          }
+        },
+        {
+          "id": "audit-34c539ce-c8db-4bdb-be4a-9f1f0f213a01",
+          "requestId": "REQ-KHCN-81f59f34-cc4d-49db-8836-4196312c32bd",
+          "actor": "credit",
+          "eventType": "CREDIT_CALCULATED",
+          "message": "Credit calculations completed deterministically.",
+          "timestamp": "2026-07-18T02:26:00.279Z",
+          "metadata": {
+            "qualifiedIncome": 75900000,
+            "proposedAmount": 2250000000,
+            "stressDti": "59.6%",
+            "ltv": "64.3%"
+          }
+        },
+        {
+          "id": "audit-e12ff8f4-4d78-49d6-89f8-050d7ebc81a4",
+          "requestId": "REQ-KHCN-81f59f34-cc4d-49db-8836-4196312c32bd",
+          "actor": "legal",
+          "eventType": "VIOLATION",
+          "message": "TCTD-INSURANCE-TYING-001 fired.",
+          "timestamp": "2026-07-18T02:26:00.279Z",
+          "metadata": {
+            "blocksAt": "APPROVAL"
+          }
+        },
+        {
+          "id": "audit-5c0bb2a8-bb7d-4821-8890-922f7439be73",
+          "requestId": "REQ-KHCN-81f59f34-cc4d-49db-8836-4196312c32bd",
+          "actor": "legal",
+          "eventType": "PASS_WITH_CONDITION",
+          "message": "MARITAL-COMMON-PROPERTY-001 fired.",
+          "timestamp": "2026-07-18T02:26:00.279Z",
+          "metadata": {
+            "blocksAt": "CONTRACT_SIGNING"
+          }
+        },
+        {
+          "id": "audit-61799b8a-af01-407c-ab26-843f39bf0f89",
+          "requestId": "REQ-KHCN-81f59f34-cc4d-49db-8836-4196312c32bd",
+          "actor": "legal",
+          "eventType": "PASS_WITH_CONDITION",
+          "message": "FUTURE-HOUSING-GUARANTEE-001 fired.",
+          "timestamp": "2026-07-18T02:26:00.279Z",
+          "metadata": {
+            "blocksAt": "DISBURSEMENT"
+          }
+        },
+        {
+          "id": "audit-4fe2b59d-826f-4f4d-b89c-f5deda6d684e",
+          "requestId": "REQ-KHCN-81f59f34-cc4d-49db-8836-4196312c32bd",
+          "actor": "legal",
+          "eventType": "CONSENT_REQUIRED",
+          "message": "PDPD-CONSENT-001 fired.",
+          "timestamp": "2026-07-18T02:26:00.279Z",
+          "metadata": {
+            "blocksAt": "EXTERNAL_DATA_CALL"
+          }
+        },
+        {
+          "id": "audit-223e5c41-f5f5-4bca-9d85-81b21287433e",
+          "requestId": "REQ-KHCN-81f59f34-cc4d-49db-8836-4196312c32bd",
+          "actor": "gate",
+          "eventType": "CONDITIONAL_PASS",
+          "message": "Compliance gate returned CONDITIONAL_PASS.",
+          "timestamp": "2026-07-18T02:26:00.279Z"
+        },
+        {
+          "id": "audit-04220db6-614d-4b61-8978-44feed278cda",
+          "requestId": "REQ-KHCN-81f59f34-cc4d-49db-8836-4196312c32bd",
+          "actor": "TEST_REVIEWER_001",
+          "eventType": "HUMAN_APPROVED",
+          "message": "Human approval token issued.",
+          "timestamp": "2026-07-18T02:26:00.287Z",
+          "metadata": {
+            "humanApprovalToken": "human-token-928ee4b0-10ba-4cd3-8d98-27affdbf2afe",
+            "reviewerRole": "DEMO_REVIEWER",
+            "approvalIntent": "APPROVE:REQ-KHCN-81f59f34-cc4d-49db-8836-4196312c32bd:CONDITIONAL_PASS:3",
+            "idempotencyKey": "test-REQ-KHCN-81f59f34-cc4d-49db-8836-4196312c32bd"
+          }
+        },
+        {
+          "id": "audit-2fd79eb7-2b18-4aaa-b750-3108a07e5d50",
+          "requestId": "REQ-KHCN-81f59f34-cc4d-49db-8836-4196312c32bd",
+          "actor": "operations",
+          "eventType": "EXECUTED",
+          "message": "Hybrid HIGH side-effect tools executed after approval.",
+          "timestamp": "2026-07-18T02:26:00.287Z"
+        }
+      ],
+      "createdAt": "2026-07-18T02:26:00.278Z",
+      "updatedAt": "2026-07-18T02:26:00.287Z",
+      "humanApprovalToken": "human-token-928ee4b0-10ba-4cd3-8d98-27affdbf2afe"
+    },
+    {
+      "requestId": "REQ-KHCN-1cd5ae1b-186e-497a-82a3-13944fda3494",
+      "caseId": "case_01_complex_main",
+      "title": "Hybrid home loan with refinance optimization",
+      "product": "HOME_LOAN",
+      "riskTier": "COMPLEX",
+      "approvalRoute": "HYBRID_APPROVAL",
+      "status": "WAITING_HUMAN_APPROVAL",
+      "gateStatus": "CONDITIONAL_PASS",
+      "finalAnswer": "HYBRID_APPROVAL. AI agents recommend CONDITIONAL_PASS at 2250000000 VND/360m, but HIGH actions wait for human_approval_token.",
+      "requiresHumanApproval": true,
+      "customerRequest": {
+        "requestedHomeLoanAmount": 2800000000,
+        "requestedTermMonths": 300,
+        "requestedPromotionalRate": "7.5%",
+        "requestedDtiStress": "75.6%",
+        "requestedLtv": "80.0%"
+      },
+      "systemProposal": {
+        "homeLoanAmount": 2250000000,
+        "maxAffordableHomeLoanAmount": 2250000000,
+        "termMonths": 360,
+        "promotionalRate": "7.5%",
+        "floatingRate": "11.5%",
+        "stressDti": "59.6%",
+        "ltv": "64.3%",
+        "pricing": "Insurance is optional and is not an input to pricing.",
+        "monthlyObligations": [
+          {
+            "scenario": "PROMOTIONAL_12M",
+            "homeEmi": 15700000,
+            "autoLoanEmi": 14400000,
+            "cardObligation": 5000000,
+            "dti": "46.2%"
+          },
+          {
+            "scenario": "FLOATING",
+            "homeEmi": 22300000,
+            "autoLoanEmi": 14400000,
+            "cardObligation": 5000000,
+            "dti": "54.9%"
+          },
+          {
+            "scenario": "STRESS",
+            "homeEmi": 25800000,
+            "autoLoanEmi": 14400000,
+            "cardObligation": 5000000,
+            "dti": "59.6%"
+          }
+        ]
+      },
+      "conditions": [
+        {
+          "conditionId": "MARITAL-COMMON-PROPERTY-001-1",
+          "blocksAt": "CONTRACT_SIGNING",
+          "text": "Collect spouse consent or valid separate-property evidence before contract signing.",
+          "basisRuleId": "MARITAL-COMMON-PROPERTY-001"
+        },
+        {
+          "conditionId": "FUTURE-HOUSING-GUARANTEE-001-2",
+          "blocksAt": "DISBURSEMENT",
+          "text": "Collect missing future-housing project documents before disbursement.",
+          "basisRuleId": "FUTURE-HOUSING-GUARANTEE-001"
+        },
+        {
+          "conditionId": "PDPD-CONSENT-001-3",
+          "blocksAt": "EXTERNAL_DATA_CALL",
+          "text": "External income verification is blocked until INCOME_VERIFICATION_BHXH consent exists.",
+          "basisRuleId": "PDPD-CONSENT-001"
+        }
+      ],
+      "executionActions": [
+        {
+          "tool": "los.create_retail_approval",
+          "sideEffect": "HIGH",
+          "status": "BLOCKED",
+          "requiresApprovalToken": true,
+          "message": "Waiting for human_approval_token."
+        },
+        {
+          "tool": "docs.render_approval_letter",
+          "sideEffect": "HIGH",
+          "status": "BLOCKED",
+          "requiresApprovalToken": true,
+          "message": "Waiting for human_approval_token."
+        },
+        {
+          "tool": "core.create_facility_pending",
+          "sideEffect": "HIGH",
+          "status": "BLOCKED",
+          "requiresApprovalToken": true,
+          "message": "Waiting for human_approval_token."
+        },
+        {
+          "tool": "core.set_condition_precedent",
+          "sideEffect": "HIGH",
+          "status": "BLOCKED",
+          "requiresApprovalToken": true,
+          "message": "Waiting for human_approval_token."
+        },
+        {
+          "tool": "notification.send_customer_checklist",
+          "sideEffect": "HIGH",
+          "status": "BLOCKED",
+          "requiresApprovalToken": true,
+          "message": "Waiting for human_approval_token."
+        },
+        {
+          "tool": "audit.append_event",
+          "sideEffect": "LOW",
+          "status": "APPENDED",
+          "requiresApprovalToken": false,
+          "message": "Hybrid conditional pass audit event appended."
+        }
+      ],
+      "governance": {
+        "tier": "COMPLEX",
+        "approvalRoute": "HYBRID_APPROVAL",
+        "modelCallsUsed": 4,
+        "modelCallsBudget": 8,
+        "estimatedCostUsd": 0.12,
+        "maxCostUsd": 0.25,
+        "rawPiiToLlm": false,
+        "maskedFieldCount": 4,
+        "replayMode": true,
+        "cacheHitCount": 2
+      },
+      "traces": [
+        {
+          "id": "trace-router-9d1b9a91-c97f-442c-8685-58b5d5c703e8",
+          "runId": "REQ-KHCN-1cd5ae1b-186e-497a-82a3-13944fda3494",
+          "agent": "router",
+          "task": "Route request and choose approval lane",
+          "status": "completed",
+          "summary": "COMPLEX tier selected from risk_router_inputs.",
+          "toolCalls": [
+            {
+              "toolName": "risk_router.route",
+              "input": {
+                "loan_amount": 2800000000,
+                "collateral_type": "FUTURE_APARTMENT",
+                "income_sources_count": 2,
+                "has_unverified_income": false,
+                "has_external_debt": true,
+                "is_future_property": true
+              },
+              "output": {
+                "tier": "COMPLEX",
+                "approval_route": "HYBRID_APPROVAL",
+                "agents_required": [
+                  "CREDIT",
+                  "LEGAL",
+                  "OPERATIONS"
+                ],
+                "rule_id": "SHB-RISK-ROUTER-001"
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.309Z",
+          "completedAt": "2026-07-18T02:26:00.309Z"
+        },
+        {
+          "id": "trace-planner-90ee56a4-baaa-4cb5-b071-79e2a81ca724",
+          "runId": "REQ-KHCN-1cd5ae1b-186e-497a-82a3-13944fda3494",
+          "agent": "planner",
+          "task": "Build dependency graph",
+          "status": "completed",
+          "summary": "Planner launched Credit, Legal, Operations, and Compliance Gate paths.",
+          "toolCalls": [
+            {
+              "toolName": "planner.build_dependency_graph",
+              "input": {
+                "case_id": "case_01_complex_main"
+              },
+              "output": {
+                "graph": [
+                  "router",
+                  "planner",
+                  "credit",
+                  "legal",
+                  "compliance_gate",
+                  "operations"
+                ]
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.309Z",
+          "completedAt": "2026-07-18T02:26:00.309Z"
+        },
+        {
+          "id": "trace-credit-4c472dce-d644-477f-a01d-e0f9b2f377b0",
+          "runId": "REQ-KHCN-1cd5ae1b-186e-497a-82a3-13944fda3494",
+          "agent": "credit",
+          "task": "Compute affordability and restructure proposal",
+          "status": "completed",
+          "summary": "Restructured proposal passes at 2250000000 VND over 360 months.",
+          "toolCalls": [
+            {
+              "toolName": "credit.apply_income_haircut",
+              "input": {
+                "income_sources": [
+                  "SALARY_VIA_SHB",
+                  "FREELANCE_UNVERIFIED",
+                  "RENTAL_WITH_CONTRACT"
+                ]
+              },
+              "output": {
+                "qualified_income_monthly": 75900000,
+                "breakdown": [
+                  {
+                    "source": "SALARY_VIA_SHB",
+                    "declared": 55000000,
+                    "haircutRate": 0,
+                    "qualified": 55000000
+                  },
+                  {
+                    "source": "FREELANCE_UNVERIFIED",
+                    "declared": 25000000,
+                    "haircutRate": 0.5,
+                    "qualified": 12500000
+                  },
+                  {
+                    "source": "RENTAL_WITH_CONTRACT",
+                    "declared": 12000000,
+                    "haircutRate": 0.3,
+                    "qualified": 8400000
+                  }
+                ]
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "credit.dti_stress_test",
+              "input": {
+                "home_loan_amount": 2800000000,
+                "term_months": 300,
+                "stress_rate": 0.135
+              },
+              "output": {
+                "home_emi_stress": 32600000,
+                "total_monthly_obligations": 57400000,
+                "dti": 0.7563,
+                "dti_display": "75.6%",
+                "dti_pass": false,
+                "ltv": 0.8,
+                "ltv_display": "80.0%",
+                "ltv_pass": false
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "credit.restructure_optimizer",
+              "input": {
+                "requested_amount": 2800000000,
+                "requested_term_months": 300,
+                "dti_cap": 0.6,
+                "ltv_cap": 0.7
+              },
+              "output": {
+                "proposed_amount": 2250000000,
+                "affordable_home_loan_amount_30y_stress": 2250000000,
+                "proposed_term_months": 360,
+                "dti_stress": 0.5955,
+                "dti_display": "59.6%",
+                "ltv": 0.6429,
+                "ltv_display": "64.3%",
+                "proposal_passes": true,
+                "levers": [
+                  "REFINANCE_EXTERNAL_DEBT",
+                  "REDUCE_CARD_LIMIT",
+                  "EXTEND_TERM",
+                  "REDUCE_LOAN_AMOUNT"
+                ]
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.309Z",
+          "completedAt": "2026-07-18T02:26:00.309Z"
+        },
+        {
+          "id": "trace-legal-709dec30-c99a-4985-8232-6b1841fd5db0",
+          "runId": "REQ-KHCN-1cd5ae1b-186e-497a-82a3-13944fda3494",
+          "agent": "legal",
+          "task": "Apply retail legal and compliance rule pack",
+          "status": "completed",
+          "summary": "4 legal/compliance finding(s) produced from parsed documents and consent registry.",
+          "toolCalls": [
+            {
+              "toolName": "legal.tctd_insurance_tying_001",
+              "input": {
+                "rule_id": "TCTD-INSURANCE-TYING-001"
+              },
+              "output": {
+                "status": "VIOLATION",
+                "severity": "BLOCKER",
+                "blocks_at": "APPROVAL",
+                "calculation": {
+                  "tyingDetected": true,
+                  "rateIfInsurancePurchased": 0.072,
+                  "rateIfInsuranceDeclined": 0.085,
+                  "inputsUsed": [
+                    "customer_segment",
+                    "relationship_years",
+                    "salary_via_bank",
+                    "insurance_purchase"
+                  ]
+                }
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "legal.marital_common_property_001",
+              "input": {
+                "rule_id": "MARITAL-COMMON-PROPERTY-001"
+              },
+              "output": {
+                "status": "PASS_WITH_CONDITION",
+                "severity": "CONDITION",
+                "blocks_at": "CONTRACT_SIGNING",
+                "calculation": {
+                  "requiresSpouseConsent": true
+                }
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "legal.future_housing_guarantee_001",
+              "input": {
+                "rule_id": "FUTURE-HOUSING-GUARANTEE-001"
+              },
+              "output": {
+                "status": "PASS_WITH_CONDITION",
+                "severity": "CONDITION",
+                "blocks_at": "DISBURSEMENT",
+                "calculation": {
+                  "projectEligible": false,
+                  "missingProjectDocuments": [
+                    "bank_guarantee_certificate",
+                    "lien_release_for_unit"
+                  ]
+                }
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "legal.pdpd_consent_001",
+              "input": {
+                "rule_id": "PDPD-CONSENT-001"
+              },
+              "output": {
+                "status": "CONSENT_REQUIRED",
+                "severity": "BLOCKER",
+                "blocks_at": "EXTERNAL_DATA_CALL",
+                "calculation": {
+                  "scopeRequested": "INCOME_VERIFICATION_BHXH",
+                  "consentValid": false,
+                  "outboundCallsMade": 0
+                }
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.309Z",
+          "completedAt": "2026-07-18T02:26:00.309Z"
+        },
+        {
+          "id": "trace-gate-763beb9a-ac45-4f17-a54a-8fa570f20912",
+          "runId": "REQ-KHCN-1cd5ae1b-186e-497a-82a3-13944fda3494",
+          "agent": "gate",
+          "task": "Run Compliance Gate",
+          "status": "completed",
+          "summary": "Gate returned CONDITIONAL_PASS.",
+          "toolCalls": [
+            {
+              "toolName": "compliance_gate.evaluate",
+              "input": {
+                "credit_pass": true,
+                "legal_findings": [
+                  "TCTD-INSURANCE-TYING-001",
+                  "MARITAL-COMMON-PROPERTY-001",
+                  "FUTURE-HOUSING-GUARANTEE-001",
+                  "PDPD-CONSENT-001"
+                ],
+                "prompt_injection_detected": false
+              },
+              "output": {
+                "gate_status": "CONDITIONAL_PASS",
+                "final_home_loan_amount": 2250000000,
+                "binding_dti_display": "59.6%",
+                "ltv_display": "64.3%"
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.309Z",
+          "completedAt": "2026-07-18T02:26:00.309Z"
+        },
+        {
+          "id": "trace-operations-cbf11b5f-4e22-4b63-9f19-e17b6d4f3987",
+          "runId": "REQ-KHCN-1cd5ae1b-186e-497a-82a3-13944fda3494",
+          "agent": "operations",
+          "task": "Prepare execution and enforce approval guard",
+          "status": "blocked",
+          "summary": "HIGH write tools are blocked until human_approval_token exists.",
+          "toolCalls": [
+            {
+              "toolName": "external.verify_income_bhxh",
+              "input": {
+                "consent_scope": "INCOME_VERIFICATION_BHXH"
+              },
+              "output": {
+                "status": "BLOCKED",
+                "error": "ConsentRequired",
+                "outbound_calls_made": 0
+              },
+              "status": "failed"
+            },
+            {
+              "toolName": "los.create_retail_approval",
+              "input": {
+                "approval_route": "HYBRID_APPROVAL",
+                "human_approval_token": null
+              },
+              "output": {
+                "status": "BLOCKED",
+                "error": "Missing human_approval_token"
+              },
+              "status": "failed"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.309Z",
+          "completedAt": "2026-07-18T02:26:00.309Z"
+        }
+      ],
+      "audit": [
+        {
+          "id": "audit-6d86eab4-6bbb-4466-8af1-dabd4b73d634",
+          "requestId": "REQ-KHCN-1cd5ae1b-186e-497a-82a3-13944fda3494",
+          "actor": "router",
+          "eventType": "ROUTED",
+          "message": "COMPLEX tier selected.",
+          "timestamp": "2026-07-18T02:26:00.309Z",
+          "metadata": {
+            "approvalRoute": "HYBRID_APPROVAL"
+          }
+        },
+        {
+          "id": "audit-d7072725-bf49-4a92-bc80-9b83adb19179",
+          "requestId": "REQ-KHCN-1cd5ae1b-186e-497a-82a3-13944fda3494",
+          "actor": "credit",
+          "eventType": "CREDIT_CALCULATED",
+          "message": "Credit calculations completed deterministically.",
+          "timestamp": "2026-07-18T02:26:00.309Z",
+          "metadata": {
+            "qualifiedIncome": 75900000,
+            "proposedAmount": 2250000000,
+            "stressDti": "59.6%",
+            "ltv": "64.3%"
+          }
+        },
+        {
+          "id": "audit-11680793-f6a4-446e-a887-7a7505f4ec7b",
+          "requestId": "REQ-KHCN-1cd5ae1b-186e-497a-82a3-13944fda3494",
+          "actor": "legal",
+          "eventType": "VIOLATION",
+          "message": "TCTD-INSURANCE-TYING-001 fired.",
+          "timestamp": "2026-07-18T02:26:00.309Z",
+          "metadata": {
+            "blocksAt": "APPROVAL"
+          }
+        },
+        {
+          "id": "audit-99b457bc-5739-4643-8239-5ff85cbddae8",
+          "requestId": "REQ-KHCN-1cd5ae1b-186e-497a-82a3-13944fda3494",
+          "actor": "legal",
+          "eventType": "PASS_WITH_CONDITION",
+          "message": "MARITAL-COMMON-PROPERTY-001 fired.",
+          "timestamp": "2026-07-18T02:26:00.309Z",
+          "metadata": {
+            "blocksAt": "CONTRACT_SIGNING"
+          }
+        },
+        {
+          "id": "audit-f77d6c90-634f-4b35-95ce-751a7b437d08",
+          "requestId": "REQ-KHCN-1cd5ae1b-186e-497a-82a3-13944fda3494",
+          "actor": "legal",
+          "eventType": "PASS_WITH_CONDITION",
+          "message": "FUTURE-HOUSING-GUARANTEE-001 fired.",
+          "timestamp": "2026-07-18T02:26:00.309Z",
+          "metadata": {
+            "blocksAt": "DISBURSEMENT"
+          }
+        },
+        {
+          "id": "audit-c124ad96-d560-4c05-adb0-bfb322214665",
+          "requestId": "REQ-KHCN-1cd5ae1b-186e-497a-82a3-13944fda3494",
+          "actor": "legal",
+          "eventType": "CONSENT_REQUIRED",
+          "message": "PDPD-CONSENT-001 fired.",
+          "timestamp": "2026-07-18T02:26:00.309Z",
+          "metadata": {
+            "blocksAt": "EXTERNAL_DATA_CALL"
+          }
+        },
+        {
+          "id": "audit-5ae8401c-05da-4c3c-abbb-4af26e9d9367",
+          "requestId": "REQ-KHCN-1cd5ae1b-186e-497a-82a3-13944fda3494",
+          "actor": "gate",
+          "eventType": "CONDITIONAL_PASS",
+          "message": "Compliance gate returned CONDITIONAL_PASS.",
+          "timestamp": "2026-07-18T02:26:00.309Z"
+        }
+      ],
+      "createdAt": "2026-07-18T02:26:00.309Z",
+      "updatedAt": "2026-07-18T02:26:00.309Z"
+    },
+    {
+      "requestId": "REQ-KHCN-2f2d0f7a-27e2-4c7e-8147-f1e08dcd4cb1",
+      "caseId": "case_03_insurance_tying_only",
+      "title": "Insurance tying pricing trap",
+      "product": "HOME_LOAN",
+      "riskTier": "COMPLEX",
+      "approvalRoute": "HYBRID_APPROVAL",
+      "status": "COMPLETED",
+      "gateStatus": "REPLAN_REQUIRED",
+      "finalAnswer": "REPLAN_REQUIRED. Optional insurance was detected as a pricing input and must be removed before approval.",
+      "requiresHumanApproval": false,
+      "customerRequest": {
+        "requestedHomeLoanAmount": 2800000000,
+        "requestedTermMonths": 300,
+        "requestedPromotionalRate": "7.5%",
+        "requestedDtiStress": "75.6%",
+        "requestedLtv": "80.0%"
+      },
+      "systemProposal": {
+        "homeLoanAmount": 2250000000,
+        "maxAffordableHomeLoanAmount": 2250000000,
+        "termMonths": 360,
+        "promotionalRate": "7.5%",
+        "floatingRate": "11.5%",
+        "stressDti": "59.6%",
+        "ltv": "64.3%",
+        "pricing": "Insurance is optional and is not an input to pricing.",
+        "monthlyObligations": [
+          {
+            "scenario": "PROMOTIONAL_12M",
+            "homeEmi": 15700000,
+            "autoLoanEmi": 14400000,
+            "cardObligation": 5000000,
+            "dti": "46.2%"
+          },
+          {
+            "scenario": "FLOATING",
+            "homeEmi": 22300000,
+            "autoLoanEmi": 14400000,
+            "cardObligation": 5000000,
+            "dti": "54.9%"
+          },
+          {
+            "scenario": "STRESS",
+            "homeEmi": 25800000,
+            "autoLoanEmi": 14400000,
+            "cardObligation": 5000000,
+            "dti": "59.6%"
+          }
+        ]
+      },
+      "conditions": [
+        {
+          "conditionId": "TCTD-INSURANCE-TYING-001-1",
+          "blocksAt": "APPROVAL",
+          "text": "Pricing must be independent from optional insurance purchase.",
+          "basisRuleId": "TCTD-INSURANCE-TYING-001"
+        }
+      ],
+      "executionActions": [
+        {
+          "tool": "audit.append_event",
+          "sideEffect": "LOW",
+          "status": "APPENDED",
+          "requiresApprovalToken": false,
+          "message": "REPLAN_REQUIRED audit event appended."
+        }
+      ],
+      "governance": {
+        "tier": "COMPLEX",
+        "approvalRoute": "HYBRID_APPROVAL",
+        "modelCallsUsed": 4,
+        "modelCallsBudget": 8,
+        "estimatedCostUsd": 0.12,
+        "maxCostUsd": 0.25,
+        "rawPiiToLlm": false,
+        "maskedFieldCount": 4,
+        "replayMode": true,
+        "cacheHitCount": 2
+      },
+      "traces": [
+        {
+          "id": "trace-router-50c159bb-2912-4a28-9281-fd52fd13437b",
+          "runId": "REQ-KHCN-2f2d0f7a-27e2-4c7e-8147-f1e08dcd4cb1",
+          "agent": "router",
+          "task": "Route request and choose approval lane",
+          "status": "completed",
+          "summary": "COMPLEX tier selected from risk_router_inputs.",
+          "toolCalls": [
+            {
+              "toolName": "risk_router.route",
+              "input": {
+                "loan_amount": 2800000000,
+                "collateral_type": "FUTURE_APARTMENT",
+                "income_sources_count": 2,
+                "has_unverified_income": false,
+                "has_external_debt": true,
+                "is_future_property": true
+              },
+              "output": {
+                "tier": "COMPLEX",
+                "approval_route": "HYBRID_APPROVAL",
+                "agents_required": [
+                  "CREDIT",
+                  "LEGAL",
+                  "OPERATIONS"
+                ],
+                "rule_id": "SHB-RISK-ROUTER-001"
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.335Z",
+          "completedAt": "2026-07-18T02:26:00.335Z"
+        },
+        {
+          "id": "trace-planner-529a55b5-f919-4d85-86cc-0f8324b360b4",
+          "runId": "REQ-KHCN-2f2d0f7a-27e2-4c7e-8147-f1e08dcd4cb1",
+          "agent": "planner",
+          "task": "Build dependency graph",
+          "status": "completed",
+          "summary": "Planner launched Credit, Legal, Operations, and Compliance Gate paths.",
+          "toolCalls": [
+            {
+              "toolName": "planner.build_dependency_graph",
+              "input": {
+                "case_id": "case_03_insurance_tying_only"
+              },
+              "output": {
+                "graph": [
+                  "router",
+                  "planner",
+                  "credit",
+                  "legal",
+                  "compliance_gate",
+                  "operations"
+                ]
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.335Z",
+          "completedAt": "2026-07-18T02:26:00.335Z"
+        },
+        {
+          "id": "trace-credit-14ae5cd5-2e43-4b69-8000-af3abfe9cec4",
+          "runId": "REQ-KHCN-2f2d0f7a-27e2-4c7e-8147-f1e08dcd4cb1",
+          "agent": "credit",
+          "task": "Compute affordability and restructure proposal",
+          "status": "completed",
+          "summary": "Restructured proposal passes at 2250000000 VND over 360 months.",
+          "toolCalls": [
+            {
+              "toolName": "credit.apply_income_haircut",
+              "input": {
+                "income_sources": [
+                  "SALARY_VIA_SHB",
+                  "FREELANCE_UNVERIFIED",
+                  "RENTAL_WITH_CONTRACT"
+                ]
+              },
+              "output": {
+                "qualified_income_monthly": 75900000,
+                "breakdown": [
+                  {
+                    "source": "SALARY_VIA_SHB",
+                    "declared": 55000000,
+                    "haircutRate": 0,
+                    "qualified": 55000000
+                  },
+                  {
+                    "source": "FREELANCE_UNVERIFIED",
+                    "declared": 25000000,
+                    "haircutRate": 0.5,
+                    "qualified": 12500000
+                  },
+                  {
+                    "source": "RENTAL_WITH_CONTRACT",
+                    "declared": 12000000,
+                    "haircutRate": 0.3,
+                    "qualified": 8400000
+                  }
+                ]
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "credit.dti_stress_test",
+              "input": {
+                "home_loan_amount": 2800000000,
+                "term_months": 300,
+                "stress_rate": 0.135
+              },
+              "output": {
+                "home_emi_stress": 32600000,
+                "total_monthly_obligations": 57400000,
+                "dti": 0.7563,
+                "dti_display": "75.6%",
+                "dti_pass": false,
+                "ltv": 0.8,
+                "ltv_display": "80.0%",
+                "ltv_pass": false
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "credit.restructure_optimizer",
+              "input": {
+                "requested_amount": 2800000000,
+                "requested_term_months": 300,
+                "dti_cap": 0.6,
+                "ltv_cap": 0.7
+              },
+              "output": {
+                "proposed_amount": 2250000000,
+                "affordable_home_loan_amount_30y_stress": 2250000000,
+                "proposed_term_months": 360,
+                "dti_stress": 0.5955,
+                "dti_display": "59.6%",
+                "ltv": 0.6429,
+                "ltv_display": "64.3%",
+                "proposal_passes": true,
+                "levers": [
+                  "REFINANCE_EXTERNAL_DEBT",
+                  "REDUCE_CARD_LIMIT",
+                  "EXTEND_TERM",
+                  "REDUCE_LOAN_AMOUNT"
+                ]
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.335Z",
+          "completedAt": "2026-07-18T02:26:00.335Z"
+        },
+        {
+          "id": "trace-legal-84250d26-89c2-4868-bbc5-98c6b39d4050",
+          "runId": "REQ-KHCN-2f2d0f7a-27e2-4c7e-8147-f1e08dcd4cb1",
+          "agent": "legal",
+          "task": "Apply retail legal and compliance rule pack",
+          "status": "completed",
+          "summary": "1 legal/compliance finding(s) produced from parsed documents and consent registry.",
+          "toolCalls": [
+            {
+              "toolName": "legal.tctd_insurance_tying_001",
+              "input": {
+                "rule_id": "TCTD-INSURANCE-TYING-001"
+              },
+              "output": {
+                "status": "VIOLATION",
+                "severity": "BLOCKER",
+                "blocks_at": "APPROVAL",
+                "calculation": {
+                  "tyingDetected": true,
+                  "rateIfInsurancePurchased": 0.072,
+                  "rateIfInsuranceDeclined": 0.085,
+                  "inputsUsed": [
+                    "customer_segment",
+                    "relationship_years",
+                    "salary_via_bank",
+                    "insurance_purchase"
+                  ]
+                }
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.335Z",
+          "completedAt": "2026-07-18T02:26:00.335Z"
+        },
+        {
+          "id": "trace-gate-06122b2b-24c5-4e63-b772-136e80155830",
+          "runId": "REQ-KHCN-2f2d0f7a-27e2-4c7e-8147-f1e08dcd4cb1",
+          "agent": "gate",
+          "task": "Run Compliance Gate",
+          "status": "completed",
+          "summary": "Gate returned REPLAN_REQUIRED.",
+          "toolCalls": [
+            {
+              "toolName": "compliance_gate.evaluate",
+              "input": {
+                "credit_pass": true,
+                "legal_findings": [
+                  "TCTD-INSURANCE-TYING-001"
+                ],
+                "prompt_injection_detected": false
+              },
+              "output": {
+                "gate_status": "REPLAN_REQUIRED",
+                "final_home_loan_amount": 2250000000,
+                "binding_dti_display": "59.6%",
+                "ltv_display": "64.3%"
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.335Z",
+          "completedAt": "2026-07-18T02:26:00.335Z"
+        }
+      ],
+      "audit": [
+        {
+          "id": "audit-afd82e5f-8522-4c5b-b361-18b98305b992",
+          "requestId": "REQ-KHCN-2f2d0f7a-27e2-4c7e-8147-f1e08dcd4cb1",
+          "actor": "router",
+          "eventType": "ROUTED",
+          "message": "COMPLEX tier selected.",
+          "timestamp": "2026-07-18T02:26:00.335Z",
+          "metadata": {
+            "approvalRoute": "HYBRID_APPROVAL"
+          }
+        },
+        {
+          "id": "audit-36077b58-1156-45b3-ac37-f90a7f363d0f",
+          "requestId": "REQ-KHCN-2f2d0f7a-27e2-4c7e-8147-f1e08dcd4cb1",
+          "actor": "credit",
+          "eventType": "CREDIT_CALCULATED",
+          "message": "Credit calculations completed deterministically.",
+          "timestamp": "2026-07-18T02:26:00.335Z",
+          "metadata": {
+            "qualifiedIncome": 75900000,
+            "proposedAmount": 2250000000,
+            "stressDti": "59.6%",
+            "ltv": "64.3%"
+          }
+        },
+        {
+          "id": "audit-fc90d32e-db76-4eac-9836-18bcb8cbb416",
+          "requestId": "REQ-KHCN-2f2d0f7a-27e2-4c7e-8147-f1e08dcd4cb1",
+          "actor": "legal",
+          "eventType": "VIOLATION",
+          "message": "TCTD-INSURANCE-TYING-001 fired.",
+          "timestamp": "2026-07-18T02:26:00.335Z",
+          "metadata": {
+            "blocksAt": "APPROVAL"
+          }
+        },
+        {
+          "id": "audit-8cc40f3b-6c3a-4c99-86df-9a2f14c40588",
+          "requestId": "REQ-KHCN-2f2d0f7a-27e2-4c7e-8147-f1e08dcd4cb1",
+          "actor": "gate",
+          "eventType": "REPLAN_REQUIRED",
+          "message": "Compliance gate returned REPLAN_REQUIRED.",
+          "timestamp": "2026-07-18T02:26:00.335Z"
+        }
+      ],
+      "createdAt": "2026-07-18T02:26:00.334Z",
+      "updatedAt": "2026-07-18T02:26:00.334Z"
+    },
+    {
+      "requestId": "REQ-KHCN-f1c92447-3dab-41ca-af80-8c9af128a4e2",
+      "caseId": "case_04_marital_missing_spouse",
+      "title": "Marital property signature condition",
+      "product": "HOME_LOAN",
+      "riskTier": "COMPLEX",
+      "approvalRoute": "HYBRID_APPROVAL",
+      "status": "WAITING_HUMAN_APPROVAL",
+      "gateStatus": "CONDITIONAL_PASS",
+      "finalAnswer": "HYBRID_APPROVAL. AI agents recommend CONDITIONAL_PASS at 2250000000 VND/360m, but HIGH actions wait for human_approval_token.",
+      "requiresHumanApproval": true,
+      "customerRequest": {
+        "requestedHomeLoanAmount": 2800000000,
+        "requestedTermMonths": 300,
+        "requestedPromotionalRate": "7.5%",
+        "requestedDtiStress": "75.6%",
+        "requestedLtv": "80.0%"
+      },
+      "systemProposal": {
+        "homeLoanAmount": 2250000000,
+        "maxAffordableHomeLoanAmount": 2250000000,
+        "termMonths": 360,
+        "promotionalRate": "7.5%",
+        "floatingRate": "11.5%",
+        "stressDti": "59.6%",
+        "ltv": "64.3%",
+        "pricing": "Insurance is optional and is not an input to pricing.",
+        "monthlyObligations": [
+          {
+            "scenario": "PROMOTIONAL_12M",
+            "homeEmi": 15700000,
+            "autoLoanEmi": 14400000,
+            "cardObligation": 5000000,
+            "dti": "46.2%"
+          },
+          {
+            "scenario": "FLOATING",
+            "homeEmi": 22300000,
+            "autoLoanEmi": 14400000,
+            "cardObligation": 5000000,
+            "dti": "54.9%"
+          },
+          {
+            "scenario": "STRESS",
+            "homeEmi": 25800000,
+            "autoLoanEmi": 14400000,
+            "cardObligation": 5000000,
+            "dti": "59.6%"
+          }
+        ]
+      },
+      "conditions": [
+        {
+          "conditionId": "MARITAL-COMMON-PROPERTY-001-1",
+          "blocksAt": "CONTRACT_SIGNING",
+          "text": "Collect spouse consent or valid separate-property evidence before contract signing.",
+          "basisRuleId": "MARITAL-COMMON-PROPERTY-001"
+        }
+      ],
+      "executionActions": [
+        {
+          "tool": "los.create_retail_approval",
+          "sideEffect": "HIGH",
+          "status": "BLOCKED",
+          "requiresApprovalToken": true,
+          "message": "Waiting for human_approval_token."
+        },
+        {
+          "tool": "docs.render_approval_letter",
+          "sideEffect": "HIGH",
+          "status": "BLOCKED",
+          "requiresApprovalToken": true,
+          "message": "Waiting for human_approval_token."
+        },
+        {
+          "tool": "core.create_facility_pending",
+          "sideEffect": "HIGH",
+          "status": "BLOCKED",
+          "requiresApprovalToken": true,
+          "message": "Waiting for human_approval_token."
+        },
+        {
+          "tool": "core.set_condition_precedent",
+          "sideEffect": "HIGH",
+          "status": "BLOCKED",
+          "requiresApprovalToken": true,
+          "message": "Waiting for human_approval_token."
+        },
+        {
+          "tool": "notification.send_customer_checklist",
+          "sideEffect": "HIGH",
+          "status": "BLOCKED",
+          "requiresApprovalToken": true,
+          "message": "Waiting for human_approval_token."
+        },
+        {
+          "tool": "audit.append_event",
+          "sideEffect": "LOW",
+          "status": "APPENDED",
+          "requiresApprovalToken": false,
+          "message": "Hybrid conditional pass audit event appended."
+        }
+      ],
+      "governance": {
+        "tier": "COMPLEX",
+        "approvalRoute": "HYBRID_APPROVAL",
+        "modelCallsUsed": 4,
+        "modelCallsBudget": 8,
+        "estimatedCostUsd": 0.12,
+        "maxCostUsd": 0.25,
+        "rawPiiToLlm": false,
+        "maskedFieldCount": 4,
+        "replayMode": true,
+        "cacheHitCount": 2
+      },
+      "traces": [
+        {
+          "id": "trace-router-aed23bc1-0815-4745-b893-e4bb912acb56",
+          "runId": "REQ-KHCN-f1c92447-3dab-41ca-af80-8c9af128a4e2",
+          "agent": "router",
+          "task": "Route request and choose approval lane",
+          "status": "completed",
+          "summary": "COMPLEX tier selected from risk_router_inputs.",
+          "toolCalls": [
+            {
+              "toolName": "risk_router.route",
+              "input": {
+                "loan_amount": 2800000000,
+                "collateral_type": "FUTURE_APARTMENT",
+                "income_sources_count": 2,
+                "has_unverified_income": false,
+                "has_external_debt": true,
+                "is_future_property": true
+              },
+              "output": {
+                "tier": "COMPLEX",
+                "approval_route": "HYBRID_APPROVAL",
+                "agents_required": [
+                  "CREDIT",
+                  "LEGAL",
+                  "OPERATIONS"
+                ],
+                "rule_id": "SHB-RISK-ROUTER-001"
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.340Z",
+          "completedAt": "2026-07-18T02:26:00.340Z"
+        },
+        {
+          "id": "trace-planner-5c3b4e7b-9db3-4b14-9752-15c85c6610b2",
+          "runId": "REQ-KHCN-f1c92447-3dab-41ca-af80-8c9af128a4e2",
+          "agent": "planner",
+          "task": "Build dependency graph",
+          "status": "completed",
+          "summary": "Planner launched Credit, Legal, Operations, and Compliance Gate paths.",
+          "toolCalls": [
+            {
+              "toolName": "planner.build_dependency_graph",
+              "input": {
+                "case_id": "case_04_marital_missing_spouse"
+              },
+              "output": {
+                "graph": [
+                  "router",
+                  "planner",
+                  "credit",
+                  "legal",
+                  "compliance_gate",
+                  "operations"
+                ]
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.340Z",
+          "completedAt": "2026-07-18T02:26:00.340Z"
+        },
+        {
+          "id": "trace-credit-c9f372e0-9f8c-44b5-91a6-88fb1a2eebd9",
+          "runId": "REQ-KHCN-f1c92447-3dab-41ca-af80-8c9af128a4e2",
+          "agent": "credit",
+          "task": "Compute affordability and restructure proposal",
+          "status": "completed",
+          "summary": "Restructured proposal passes at 2250000000 VND over 360 months.",
+          "toolCalls": [
+            {
+              "toolName": "credit.apply_income_haircut",
+              "input": {
+                "income_sources": [
+                  "SALARY_VIA_SHB",
+                  "FREELANCE_UNVERIFIED",
+                  "RENTAL_WITH_CONTRACT"
+                ]
+              },
+              "output": {
+                "qualified_income_monthly": 75900000,
+                "breakdown": [
+                  {
+                    "source": "SALARY_VIA_SHB",
+                    "declared": 55000000,
+                    "haircutRate": 0,
+                    "qualified": 55000000
+                  },
+                  {
+                    "source": "FREELANCE_UNVERIFIED",
+                    "declared": 25000000,
+                    "haircutRate": 0.5,
+                    "qualified": 12500000
+                  },
+                  {
+                    "source": "RENTAL_WITH_CONTRACT",
+                    "declared": 12000000,
+                    "haircutRate": 0.3,
+                    "qualified": 8400000
+                  }
+                ]
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "credit.dti_stress_test",
+              "input": {
+                "home_loan_amount": 2800000000,
+                "term_months": 300,
+                "stress_rate": 0.135
+              },
+              "output": {
+                "home_emi_stress": 32600000,
+                "total_monthly_obligations": 57400000,
+                "dti": 0.7563,
+                "dti_display": "75.6%",
+                "dti_pass": false,
+                "ltv": 0.8,
+                "ltv_display": "80.0%",
+                "ltv_pass": false
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "credit.restructure_optimizer",
+              "input": {
+                "requested_amount": 2800000000,
+                "requested_term_months": 300,
+                "dti_cap": 0.6,
+                "ltv_cap": 0.7
+              },
+              "output": {
+                "proposed_amount": 2250000000,
+                "affordable_home_loan_amount_30y_stress": 2250000000,
+                "proposed_term_months": 360,
+                "dti_stress": 0.5955,
+                "dti_display": "59.6%",
+                "ltv": 0.6429,
+                "ltv_display": "64.3%",
+                "proposal_passes": true,
+                "levers": [
+                  "REFINANCE_EXTERNAL_DEBT",
+                  "REDUCE_CARD_LIMIT",
+                  "EXTEND_TERM",
+                  "REDUCE_LOAN_AMOUNT"
+                ]
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.340Z",
+          "completedAt": "2026-07-18T02:26:00.340Z"
+        },
+        {
+          "id": "trace-legal-c7d0ff45-0dec-47dc-a35b-a03033de2ba0",
+          "runId": "REQ-KHCN-f1c92447-3dab-41ca-af80-8c9af128a4e2",
+          "agent": "legal",
+          "task": "Apply retail legal and compliance rule pack",
+          "status": "completed",
+          "summary": "1 legal/compliance finding(s) produced from parsed documents and consent registry.",
+          "toolCalls": [
+            {
+              "toolName": "legal.marital_common_property_001",
+              "input": {
+                "rule_id": "MARITAL-COMMON-PROPERTY-001"
+              },
+              "output": {
+                "status": "PASS_WITH_CONDITION",
+                "severity": "CONDITION",
+                "blocks_at": "CONTRACT_SIGNING",
+                "calculation": {
+                  "requiresSpouseConsent": true
+                }
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.340Z",
+          "completedAt": "2026-07-18T02:26:00.340Z"
+        },
+        {
+          "id": "trace-gate-45f6d444-86e4-46fd-94c9-52e30f9cbf84",
+          "runId": "REQ-KHCN-f1c92447-3dab-41ca-af80-8c9af128a4e2",
+          "agent": "gate",
+          "task": "Run Compliance Gate",
+          "status": "completed",
+          "summary": "Gate returned CONDITIONAL_PASS.",
+          "toolCalls": [
+            {
+              "toolName": "compliance_gate.evaluate",
+              "input": {
+                "credit_pass": true,
+                "legal_findings": [
+                  "MARITAL-COMMON-PROPERTY-001"
+                ],
+                "prompt_injection_detected": false
+              },
+              "output": {
+                "gate_status": "CONDITIONAL_PASS",
+                "final_home_loan_amount": 2250000000,
+                "binding_dti_display": "59.6%",
+                "ltv_display": "64.3%"
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.340Z",
+          "completedAt": "2026-07-18T02:26:00.340Z"
+        },
+        {
+          "id": "trace-operations-c71edbf1-24c6-4f6d-ab23-aebef3231bf1",
+          "runId": "REQ-KHCN-f1c92447-3dab-41ca-af80-8c9af128a4e2",
+          "agent": "operations",
+          "task": "Prepare execution and enforce approval guard",
+          "status": "blocked",
+          "summary": "HIGH write tools are blocked until human_approval_token exists.",
+          "toolCalls": [
+            {
+              "toolName": "external.verify_income_bhxh",
+              "input": {
+                "consent_scope": "INCOME_VERIFICATION_BHXH"
+              },
+              "output": {
+                "status": "BLOCKED",
+                "error": "ConsentRequired",
+                "outbound_calls_made": 0
+              },
+              "status": "failed"
+            },
+            {
+              "toolName": "los.create_retail_approval",
+              "input": {
+                "approval_route": "HYBRID_APPROVAL",
+                "human_approval_token": null
+              },
+              "output": {
+                "status": "BLOCKED",
+                "error": "Missing human_approval_token"
+              },
+              "status": "failed"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.340Z",
+          "completedAt": "2026-07-18T02:26:00.340Z"
+        }
+      ],
+      "audit": [
+        {
+          "id": "audit-959c8f3d-dfd0-4f55-a6c2-7b1d7eb53707",
+          "requestId": "REQ-KHCN-f1c92447-3dab-41ca-af80-8c9af128a4e2",
+          "actor": "router",
+          "eventType": "ROUTED",
+          "message": "COMPLEX tier selected.",
+          "timestamp": "2026-07-18T02:26:00.340Z",
+          "metadata": {
+            "approvalRoute": "HYBRID_APPROVAL"
+          }
+        },
+        {
+          "id": "audit-36036835-c8f6-4767-bda0-fcc487712312",
+          "requestId": "REQ-KHCN-f1c92447-3dab-41ca-af80-8c9af128a4e2",
+          "actor": "credit",
+          "eventType": "CREDIT_CALCULATED",
+          "message": "Credit calculations completed deterministically.",
+          "timestamp": "2026-07-18T02:26:00.340Z",
+          "metadata": {
+            "qualifiedIncome": 75900000,
+            "proposedAmount": 2250000000,
+            "stressDti": "59.6%",
+            "ltv": "64.3%"
+          }
+        },
+        {
+          "id": "audit-3eccfc01-ec60-4613-94f7-b3820445290f",
+          "requestId": "REQ-KHCN-f1c92447-3dab-41ca-af80-8c9af128a4e2",
+          "actor": "legal",
+          "eventType": "PASS_WITH_CONDITION",
+          "message": "MARITAL-COMMON-PROPERTY-001 fired.",
+          "timestamp": "2026-07-18T02:26:00.340Z",
+          "metadata": {
+            "blocksAt": "CONTRACT_SIGNING"
+          }
+        },
+        {
+          "id": "audit-7e68bb63-0efa-4729-b721-cfdd310701b1",
+          "requestId": "REQ-KHCN-f1c92447-3dab-41ca-af80-8c9af128a4e2",
+          "actor": "gate",
+          "eventType": "CONDITIONAL_PASS",
+          "message": "Compliance gate returned CONDITIONAL_PASS.",
+          "timestamp": "2026-07-18T02:26:00.340Z"
+        }
+      ],
+      "createdAt": "2026-07-18T02:26:00.339Z",
+      "updatedAt": "2026-07-18T02:26:00.339Z"
+    },
+    {
+      "requestId": "REQ-KHCN-d6f6eedd-9828-4b05-b761-0d14a9d97d0b",
+      "caseId": "case_05_project_missing_guarantee",
+      "title": "Future housing missing guarantee documents",
+      "product": "HOME_LOAN",
+      "riskTier": "COMPLEX",
+      "approvalRoute": "HYBRID_APPROVAL",
+      "status": "WAITING_HUMAN_APPROVAL",
+      "gateStatus": "CONDITIONAL_PASS",
+      "finalAnswer": "HYBRID_APPROVAL. AI agents recommend CONDITIONAL_PASS at 2250000000 VND/360m, but HIGH actions wait for human_approval_token.",
+      "requiresHumanApproval": true,
+      "customerRequest": {
+        "requestedHomeLoanAmount": 2800000000,
+        "requestedTermMonths": 300,
+        "requestedPromotionalRate": "7.5%",
+        "requestedDtiStress": "75.6%",
+        "requestedLtv": "80.0%"
+      },
+      "systemProposal": {
+        "homeLoanAmount": 2250000000,
+        "maxAffordableHomeLoanAmount": 2250000000,
+        "termMonths": 360,
+        "promotionalRate": "7.5%",
+        "floatingRate": "11.5%",
+        "stressDti": "59.6%",
+        "ltv": "64.3%",
+        "pricing": "Insurance is optional and is not an input to pricing.",
+        "monthlyObligations": [
+          {
+            "scenario": "PROMOTIONAL_12M",
+            "homeEmi": 15700000,
+            "autoLoanEmi": 14400000,
+            "cardObligation": 5000000,
+            "dti": "46.2%"
+          },
+          {
+            "scenario": "FLOATING",
+            "homeEmi": 22300000,
+            "autoLoanEmi": 14400000,
+            "cardObligation": 5000000,
+            "dti": "54.9%"
+          },
+          {
+            "scenario": "STRESS",
+            "homeEmi": 25800000,
+            "autoLoanEmi": 14400000,
+            "cardObligation": 5000000,
+            "dti": "59.6%"
+          }
+        ]
+      },
+      "conditions": [
+        {
+          "conditionId": "FUTURE-HOUSING-GUARANTEE-001-1",
+          "blocksAt": "DISBURSEMENT",
+          "text": "Collect missing future-housing project documents before disbursement.",
+          "basisRuleId": "FUTURE-HOUSING-GUARANTEE-001"
+        }
+      ],
+      "executionActions": [
+        {
+          "tool": "los.create_retail_approval",
+          "sideEffect": "HIGH",
+          "status": "BLOCKED",
+          "requiresApprovalToken": true,
+          "message": "Waiting for human_approval_token."
+        },
+        {
+          "tool": "docs.render_approval_letter",
+          "sideEffect": "HIGH",
+          "status": "BLOCKED",
+          "requiresApprovalToken": true,
+          "message": "Waiting for human_approval_token."
+        },
+        {
+          "tool": "core.create_facility_pending",
+          "sideEffect": "HIGH",
+          "status": "BLOCKED",
+          "requiresApprovalToken": true,
+          "message": "Waiting for human_approval_token."
+        },
+        {
+          "tool": "core.set_condition_precedent",
+          "sideEffect": "HIGH",
+          "status": "BLOCKED",
+          "requiresApprovalToken": true,
+          "message": "Waiting for human_approval_token."
+        },
+        {
+          "tool": "notification.send_customer_checklist",
+          "sideEffect": "HIGH",
+          "status": "BLOCKED",
+          "requiresApprovalToken": true,
+          "message": "Waiting for human_approval_token."
+        },
+        {
+          "tool": "audit.append_event",
+          "sideEffect": "LOW",
+          "status": "APPENDED",
+          "requiresApprovalToken": false,
+          "message": "Hybrid conditional pass audit event appended."
+        }
+      ],
+      "governance": {
+        "tier": "COMPLEX",
+        "approvalRoute": "HYBRID_APPROVAL",
+        "modelCallsUsed": 4,
+        "modelCallsBudget": 8,
+        "estimatedCostUsd": 0.12,
+        "maxCostUsd": 0.25,
+        "rawPiiToLlm": false,
+        "maskedFieldCount": 4,
+        "replayMode": true,
+        "cacheHitCount": 2
+      },
+      "traces": [
+        {
+          "id": "trace-router-404ed4f7-9f01-44ce-b43c-c53e2a59c246",
+          "runId": "REQ-KHCN-d6f6eedd-9828-4b05-b761-0d14a9d97d0b",
+          "agent": "router",
+          "task": "Route request and choose approval lane",
+          "status": "completed",
+          "summary": "COMPLEX tier selected from risk_router_inputs.",
+          "toolCalls": [
+            {
+              "toolName": "risk_router.route",
+              "input": {
+                "loan_amount": 2800000000,
+                "collateral_type": "FUTURE_APARTMENT",
+                "income_sources_count": 2,
+                "has_unverified_income": false,
+                "has_external_debt": true,
+                "is_future_property": true
+              },
+              "output": {
+                "tier": "COMPLEX",
+                "approval_route": "HYBRID_APPROVAL",
+                "agents_required": [
+                  "CREDIT",
+                  "LEGAL",
+                  "OPERATIONS"
+                ],
+                "rule_id": "SHB-RISK-ROUTER-001"
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.344Z",
+          "completedAt": "2026-07-18T02:26:00.344Z"
+        },
+        {
+          "id": "trace-planner-8516fe07-ee79-47f2-b569-609a47a39251",
+          "runId": "REQ-KHCN-d6f6eedd-9828-4b05-b761-0d14a9d97d0b",
+          "agent": "planner",
+          "task": "Build dependency graph",
+          "status": "completed",
+          "summary": "Planner launched Credit, Legal, Operations, and Compliance Gate paths.",
+          "toolCalls": [
+            {
+              "toolName": "planner.build_dependency_graph",
+              "input": {
+                "case_id": "case_05_project_missing_guarantee"
+              },
+              "output": {
+                "graph": [
+                  "router",
+                  "planner",
+                  "credit",
+                  "legal",
+                  "compliance_gate",
+                  "operations"
+                ]
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.344Z",
+          "completedAt": "2026-07-18T02:26:00.344Z"
+        },
+        {
+          "id": "trace-credit-397656ba-4389-4894-bdda-d2b1f98d32e1",
+          "runId": "REQ-KHCN-d6f6eedd-9828-4b05-b761-0d14a9d97d0b",
+          "agent": "credit",
+          "task": "Compute affordability and restructure proposal",
+          "status": "completed",
+          "summary": "Restructured proposal passes at 2250000000 VND over 360 months.",
+          "toolCalls": [
+            {
+              "toolName": "credit.apply_income_haircut",
+              "input": {
+                "income_sources": [
+                  "SALARY_VIA_SHB",
+                  "FREELANCE_UNVERIFIED",
+                  "RENTAL_WITH_CONTRACT"
+                ]
+              },
+              "output": {
+                "qualified_income_monthly": 75900000,
+                "breakdown": [
+                  {
+                    "source": "SALARY_VIA_SHB",
+                    "declared": 55000000,
+                    "haircutRate": 0,
+                    "qualified": 55000000
+                  },
+                  {
+                    "source": "FREELANCE_UNVERIFIED",
+                    "declared": 25000000,
+                    "haircutRate": 0.5,
+                    "qualified": 12500000
+                  },
+                  {
+                    "source": "RENTAL_WITH_CONTRACT",
+                    "declared": 12000000,
+                    "haircutRate": 0.3,
+                    "qualified": 8400000
+                  }
+                ]
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "credit.dti_stress_test",
+              "input": {
+                "home_loan_amount": 2800000000,
+                "term_months": 300,
+                "stress_rate": 0.135
+              },
+              "output": {
+                "home_emi_stress": 32600000,
+                "total_monthly_obligations": 57400000,
+                "dti": 0.7563,
+                "dti_display": "75.6%",
+                "dti_pass": false,
+                "ltv": 0.8,
+                "ltv_display": "80.0%",
+                "ltv_pass": false
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "credit.restructure_optimizer",
+              "input": {
+                "requested_amount": 2800000000,
+                "requested_term_months": 300,
+                "dti_cap": 0.6,
+                "ltv_cap": 0.7
+              },
+              "output": {
+                "proposed_amount": 2250000000,
+                "affordable_home_loan_amount_30y_stress": 2250000000,
+                "proposed_term_months": 360,
+                "dti_stress": 0.5955,
+                "dti_display": "59.6%",
+                "ltv": 0.6429,
+                "ltv_display": "64.3%",
+                "proposal_passes": true,
+                "levers": [
+                  "REFINANCE_EXTERNAL_DEBT",
+                  "REDUCE_CARD_LIMIT",
+                  "EXTEND_TERM",
+                  "REDUCE_LOAN_AMOUNT"
+                ]
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.344Z",
+          "completedAt": "2026-07-18T02:26:00.344Z"
+        },
+        {
+          "id": "trace-legal-11908ad7-ad69-48ef-8592-6fcf463408d9",
+          "runId": "REQ-KHCN-d6f6eedd-9828-4b05-b761-0d14a9d97d0b",
+          "agent": "legal",
+          "task": "Apply retail legal and compliance rule pack",
+          "status": "completed",
+          "summary": "1 legal/compliance finding(s) produced from parsed documents and consent registry.",
+          "toolCalls": [
+            {
+              "toolName": "legal.future_housing_guarantee_001",
+              "input": {
+                "rule_id": "FUTURE-HOUSING-GUARANTEE-001"
+              },
+              "output": {
+                "status": "PASS_WITH_CONDITION",
+                "severity": "CONDITION",
+                "blocks_at": "DISBURSEMENT",
+                "calculation": {
+                  "projectEligible": false,
+                  "missingProjectDocuments": [
+                    "bank_guarantee_certificate",
+                    "lien_release_for_unit"
+                  ]
+                }
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.344Z",
+          "completedAt": "2026-07-18T02:26:00.344Z"
+        },
+        {
+          "id": "trace-gate-a3c07f94-0302-4928-9832-bb7f3ce9e4b2",
+          "runId": "REQ-KHCN-d6f6eedd-9828-4b05-b761-0d14a9d97d0b",
+          "agent": "gate",
+          "task": "Run Compliance Gate",
+          "status": "completed",
+          "summary": "Gate returned CONDITIONAL_PASS.",
+          "toolCalls": [
+            {
+              "toolName": "compliance_gate.evaluate",
+              "input": {
+                "credit_pass": true,
+                "legal_findings": [
+                  "FUTURE-HOUSING-GUARANTEE-001"
+                ],
+                "prompt_injection_detected": false
+              },
+              "output": {
+                "gate_status": "CONDITIONAL_PASS",
+                "final_home_loan_amount": 2250000000,
+                "binding_dti_display": "59.6%",
+                "ltv_display": "64.3%"
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.344Z",
+          "completedAt": "2026-07-18T02:26:00.344Z"
+        },
+        {
+          "id": "trace-operations-057a9b33-67c7-497b-9031-e6a13dc374f9",
+          "runId": "REQ-KHCN-d6f6eedd-9828-4b05-b761-0d14a9d97d0b",
+          "agent": "operations",
+          "task": "Prepare execution and enforce approval guard",
+          "status": "blocked",
+          "summary": "HIGH write tools are blocked until human_approval_token exists.",
+          "toolCalls": [
+            {
+              "toolName": "external.verify_income_bhxh",
+              "input": {
+                "consent_scope": "INCOME_VERIFICATION_BHXH"
+              },
+              "output": {
+                "status": "BLOCKED",
+                "error": "ConsentRequired",
+                "outbound_calls_made": 0
+              },
+              "status": "failed"
+            },
+            {
+              "toolName": "los.create_retail_approval",
+              "input": {
+                "approval_route": "HYBRID_APPROVAL",
+                "human_approval_token": null
+              },
+              "output": {
+                "status": "BLOCKED",
+                "error": "Missing human_approval_token"
+              },
+              "status": "failed"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.344Z",
+          "completedAt": "2026-07-18T02:26:00.344Z"
+        }
+      ],
+      "audit": [
+        {
+          "id": "audit-4d2b29b5-38bf-4274-9328-136bb4cd801c",
+          "requestId": "REQ-KHCN-d6f6eedd-9828-4b05-b761-0d14a9d97d0b",
+          "actor": "router",
+          "eventType": "ROUTED",
+          "message": "COMPLEX tier selected.",
+          "timestamp": "2026-07-18T02:26:00.344Z",
+          "metadata": {
+            "approvalRoute": "HYBRID_APPROVAL"
+          }
+        },
+        {
+          "id": "audit-b548a2bb-00b3-403f-8f87-770ffd9d1392",
+          "requestId": "REQ-KHCN-d6f6eedd-9828-4b05-b761-0d14a9d97d0b",
+          "actor": "credit",
+          "eventType": "CREDIT_CALCULATED",
+          "message": "Credit calculations completed deterministically.",
+          "timestamp": "2026-07-18T02:26:00.344Z",
+          "metadata": {
+            "qualifiedIncome": 75900000,
+            "proposedAmount": 2250000000,
+            "stressDti": "59.6%",
+            "ltv": "64.3%"
+          }
+        },
+        {
+          "id": "audit-5ebab15e-0e36-46bf-a413-e812fc3e5aa8",
+          "requestId": "REQ-KHCN-d6f6eedd-9828-4b05-b761-0d14a9d97d0b",
+          "actor": "legal",
+          "eventType": "PASS_WITH_CONDITION",
+          "message": "FUTURE-HOUSING-GUARANTEE-001 fired.",
+          "timestamp": "2026-07-18T02:26:00.344Z",
+          "metadata": {
+            "blocksAt": "DISBURSEMENT"
+          }
+        },
+        {
+          "id": "audit-1e10a24f-d8ec-42d5-85c5-7cd2c01e63c5",
+          "requestId": "REQ-KHCN-d6f6eedd-9828-4b05-b761-0d14a9d97d0b",
+          "actor": "gate",
+          "eventType": "CONDITIONAL_PASS",
+          "message": "Compliance gate returned CONDITIONAL_PASS.",
+          "timestamp": "2026-07-18T02:26:00.344Z"
+        }
+      ],
+      "createdAt": "2026-07-18T02:26:00.344Z",
+      "updatedAt": "2026-07-18T02:26:00.344Z"
+    },
+    {
+      "requestId": "REQ-KHCN-96e28331-bc74-4a99-8e10-7e04bc4da7d8",
+      "caseId": "case_06_missing_consent",
+      "title": "Missing external income verification consent",
+      "product": "HOME_LOAN",
+      "riskTier": "COMPLEX",
+      "approvalRoute": "HYBRID_APPROVAL",
+      "status": "COMPLETED",
+      "gateStatus": "CONSENT_REQUIRED",
+      "finalAnswer": "CONSENT_REQUIRED. External income verification is blocked and zero outbound calls are made until consent is granted.",
+      "requiresHumanApproval": false,
+      "customerRequest": {
+        "requestedHomeLoanAmount": 2800000000,
+        "requestedTermMonths": 300,
+        "requestedPromotionalRate": "7.5%",
+        "requestedDtiStress": "75.6%",
+        "requestedLtv": "80.0%"
+      },
+      "systemProposal": {
+        "homeLoanAmount": 2250000000,
+        "maxAffordableHomeLoanAmount": 2250000000,
+        "termMonths": 360,
+        "promotionalRate": "7.5%",
+        "floatingRate": "11.5%",
+        "stressDti": "59.6%",
+        "ltv": "64.3%",
+        "pricing": "Insurance is optional and is not an input to pricing.",
+        "monthlyObligations": [
+          {
+            "scenario": "PROMOTIONAL_12M",
+            "homeEmi": 15700000,
+            "autoLoanEmi": 14400000,
+            "cardObligation": 5000000,
+            "dti": "46.2%"
+          },
+          {
+            "scenario": "FLOATING",
+            "homeEmi": 22300000,
+            "autoLoanEmi": 14400000,
+            "cardObligation": 5000000,
+            "dti": "54.9%"
+          },
+          {
+            "scenario": "STRESS",
+            "homeEmi": 25800000,
+            "autoLoanEmi": 14400000,
+            "cardObligation": 5000000,
+            "dti": "59.6%"
+          }
+        ]
+      },
+      "conditions": [
+        {
+          "conditionId": "PDPD-CONSENT-001-1",
+          "blocksAt": "EXTERNAL_DATA_CALL",
+          "text": "External income verification is blocked until INCOME_VERIFICATION_BHXH consent exists.",
+          "basisRuleId": "PDPD-CONSENT-001"
+        }
+      ],
+      "executionActions": [
+        {
+          "tool": "external.verify_income_bhxh",
+          "sideEffect": "NONE",
+          "status": "BLOCKED",
+          "requiresApprovalToken": false,
+          "message": "ConsentRequired. Outbound calls made: 0."
+        },
+        {
+          "tool": "audit.append_event",
+          "sideEffect": "LOW",
+          "status": "APPENDED",
+          "requiresApprovalToken": false,
+          "message": "Missing consent audit event appended."
+        }
+      ],
+      "governance": {
+        "tier": "COMPLEX",
+        "approvalRoute": "HYBRID_APPROVAL",
+        "modelCallsUsed": 4,
+        "modelCallsBudget": 8,
+        "estimatedCostUsd": 0.12,
+        "maxCostUsd": 0.25,
+        "rawPiiToLlm": false,
+        "maskedFieldCount": 4,
+        "replayMode": true,
+        "cacheHitCount": 2
+      },
+      "traces": [
+        {
+          "id": "trace-router-2ff074db-4575-4375-b8dd-4676d799113b",
+          "runId": "REQ-KHCN-96e28331-bc74-4a99-8e10-7e04bc4da7d8",
+          "agent": "router",
+          "task": "Route request and choose approval lane",
+          "status": "completed",
+          "summary": "COMPLEX tier selected from risk_router_inputs.",
+          "toolCalls": [
+            {
+              "toolName": "risk_router.route",
+              "input": {
+                "loan_amount": 2800000000,
+                "collateral_type": "FUTURE_APARTMENT",
+                "income_sources_count": 2,
+                "has_unverified_income": false,
+                "has_external_debt": true,
+                "is_future_property": true
+              },
+              "output": {
+                "tier": "COMPLEX",
+                "approval_route": "HYBRID_APPROVAL",
+                "agents_required": [
+                  "CREDIT",
+                  "LEGAL",
+                  "OPERATIONS"
+                ],
+                "rule_id": "SHB-RISK-ROUTER-001"
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.349Z",
+          "completedAt": "2026-07-18T02:26:00.349Z"
+        },
+        {
+          "id": "trace-planner-9f46a535-ea78-4427-abb5-5f19fca6f32e",
+          "runId": "REQ-KHCN-96e28331-bc74-4a99-8e10-7e04bc4da7d8",
+          "agent": "planner",
+          "task": "Build dependency graph",
+          "status": "completed",
+          "summary": "Planner launched Credit, Legal, Operations, and Compliance Gate paths.",
+          "toolCalls": [
+            {
+              "toolName": "planner.build_dependency_graph",
+              "input": {
+                "case_id": "case_06_missing_consent"
+              },
+              "output": {
+                "graph": [
+                  "router",
+                  "planner",
+                  "credit",
+                  "legal",
+                  "compliance_gate",
+                  "operations"
+                ]
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.349Z",
+          "completedAt": "2026-07-18T02:26:00.349Z"
+        },
+        {
+          "id": "trace-credit-e5b88b7d-41b3-41f1-852e-e90104951dc3",
+          "runId": "REQ-KHCN-96e28331-bc74-4a99-8e10-7e04bc4da7d8",
+          "agent": "credit",
+          "task": "Compute affordability and restructure proposal",
+          "status": "completed",
+          "summary": "Restructured proposal passes at 2250000000 VND over 360 months.",
+          "toolCalls": [
+            {
+              "toolName": "credit.apply_income_haircut",
+              "input": {
+                "income_sources": [
+                  "SALARY_VIA_SHB",
+                  "FREELANCE_UNVERIFIED",
+                  "RENTAL_WITH_CONTRACT"
+                ]
+              },
+              "output": {
+                "qualified_income_monthly": 75900000,
+                "breakdown": [
+                  {
+                    "source": "SALARY_VIA_SHB",
+                    "declared": 55000000,
+                    "haircutRate": 0,
+                    "qualified": 55000000
+                  },
+                  {
+                    "source": "FREELANCE_UNVERIFIED",
+                    "declared": 25000000,
+                    "haircutRate": 0.5,
+                    "qualified": 12500000
+                  },
+                  {
+                    "source": "RENTAL_WITH_CONTRACT",
+                    "declared": 12000000,
+                    "haircutRate": 0.3,
+                    "qualified": 8400000
+                  }
+                ]
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "credit.dti_stress_test",
+              "input": {
+                "home_loan_amount": 2800000000,
+                "term_months": 300,
+                "stress_rate": 0.135
+              },
+              "output": {
+                "home_emi_stress": 32600000,
+                "total_monthly_obligations": 57400000,
+                "dti": 0.7563,
+                "dti_display": "75.6%",
+                "dti_pass": false,
+                "ltv": 0.8,
+                "ltv_display": "80.0%",
+                "ltv_pass": false
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "credit.restructure_optimizer",
+              "input": {
+                "requested_amount": 2800000000,
+                "requested_term_months": 300,
+                "dti_cap": 0.6,
+                "ltv_cap": 0.7
+              },
+              "output": {
+                "proposed_amount": 2250000000,
+                "affordable_home_loan_amount_30y_stress": 2250000000,
+                "proposed_term_months": 360,
+                "dti_stress": 0.5955,
+                "dti_display": "59.6%",
+                "ltv": 0.6429,
+                "ltv_display": "64.3%",
+                "proposal_passes": true,
+                "levers": [
+                  "REFINANCE_EXTERNAL_DEBT",
+                  "REDUCE_CARD_LIMIT",
+                  "EXTEND_TERM",
+                  "REDUCE_LOAN_AMOUNT"
+                ]
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.349Z",
+          "completedAt": "2026-07-18T02:26:00.349Z"
+        },
+        {
+          "id": "trace-legal-470d5dd2-200c-4319-b581-8bfd7869772f",
+          "runId": "REQ-KHCN-96e28331-bc74-4a99-8e10-7e04bc4da7d8",
+          "agent": "legal",
+          "task": "Apply retail legal and compliance rule pack",
+          "status": "completed",
+          "summary": "1 legal/compliance finding(s) produced from parsed documents and consent registry.",
+          "toolCalls": [
+            {
+              "toolName": "legal.pdpd_consent_001",
+              "input": {
+                "rule_id": "PDPD-CONSENT-001"
+              },
+              "output": {
+                "status": "CONSENT_REQUIRED",
+                "severity": "BLOCKER",
+                "blocks_at": "EXTERNAL_DATA_CALL",
+                "calculation": {
+                  "scopeRequested": "INCOME_VERIFICATION_BHXH",
+                  "consentValid": false,
+                  "outboundCallsMade": 0
+                }
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.349Z",
+          "completedAt": "2026-07-18T02:26:00.349Z"
+        },
+        {
+          "id": "trace-gate-4ffc7004-bd05-4527-a462-fccea167c1f2",
+          "runId": "REQ-KHCN-96e28331-bc74-4a99-8e10-7e04bc4da7d8",
+          "agent": "gate",
+          "task": "Run Compliance Gate",
+          "status": "completed",
+          "summary": "Gate returned CONSENT_REQUIRED.",
+          "toolCalls": [
+            {
+              "toolName": "compliance_gate.evaluate",
+              "input": {
+                "credit_pass": true,
+                "legal_findings": [
+                  "PDPD-CONSENT-001"
+                ],
+                "prompt_injection_detected": false
+              },
+              "output": {
+                "gate_status": "CONSENT_REQUIRED",
+                "final_home_loan_amount": 2250000000,
+                "binding_dti_display": "59.6%",
+                "ltv_display": "64.3%"
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.349Z",
+          "completedAt": "2026-07-18T02:26:00.349Z"
+        },
+        {
+          "id": "trace-operations-5732e0c8-f500-4878-9497-e09e0492c70a",
+          "runId": "REQ-KHCN-96e28331-bc74-4a99-8e10-7e04bc4da7d8",
+          "agent": "operations",
+          "task": "Enforce consent guard",
+          "status": "blocked",
+          "summary": "External income API was not called because consent is missing.",
+          "toolCalls": [
+            {
+              "toolName": "external.verify_income_bhxh",
+              "input": {
+                "consent_scope": "INCOME_VERIFICATION_BHXH"
+              },
+              "output": {
+                "status": "BLOCKED",
+                "error": "ConsentRequired",
+                "outbound_calls_made": 0
+              },
+              "status": "failed"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.349Z",
+          "completedAt": "2026-07-18T02:26:00.349Z"
+        }
+      ],
+      "audit": [
+        {
+          "id": "audit-4bacd91d-91ea-473c-a482-7fb4119469df",
+          "requestId": "REQ-KHCN-96e28331-bc74-4a99-8e10-7e04bc4da7d8",
+          "actor": "router",
+          "eventType": "ROUTED",
+          "message": "COMPLEX tier selected.",
+          "timestamp": "2026-07-18T02:26:00.349Z",
+          "metadata": {
+            "approvalRoute": "HYBRID_APPROVAL"
+          }
+        },
+        {
+          "id": "audit-d4df2e77-782b-48e2-baaa-17306ae37a8a",
+          "requestId": "REQ-KHCN-96e28331-bc74-4a99-8e10-7e04bc4da7d8",
+          "actor": "credit",
+          "eventType": "CREDIT_CALCULATED",
+          "message": "Credit calculations completed deterministically.",
+          "timestamp": "2026-07-18T02:26:00.349Z",
+          "metadata": {
+            "qualifiedIncome": 75900000,
+            "proposedAmount": 2250000000,
+            "stressDti": "59.6%",
+            "ltv": "64.3%"
+          }
+        },
+        {
+          "id": "audit-09fb595f-a732-42b3-b69b-a0d015ac6490",
+          "requestId": "REQ-KHCN-96e28331-bc74-4a99-8e10-7e04bc4da7d8",
+          "actor": "legal",
+          "eventType": "CONSENT_REQUIRED",
+          "message": "PDPD-CONSENT-001 fired.",
+          "timestamp": "2026-07-18T02:26:00.349Z",
+          "metadata": {
+            "blocksAt": "EXTERNAL_DATA_CALL"
+          }
+        },
+        {
+          "id": "audit-8c07056c-9404-4b41-8db5-ab16967647e2",
+          "requestId": "REQ-KHCN-96e28331-bc74-4a99-8e10-7e04bc4da7d8",
+          "actor": "gate",
+          "eventType": "CONSENT_REQUIRED",
+          "message": "Compliance gate returned CONSENT_REQUIRED.",
+          "timestamp": "2026-07-18T02:26:00.349Z"
+        }
+      ],
+      "createdAt": "2026-07-18T02:26:00.349Z",
+      "updatedAt": "2026-07-18T02:26:00.349Z"
+    },
+    {
+      "requestId": "REQ-KHCN-007a781a-33e3-4dc1-93ff-3e8c0378e939",
+      "caseId": "case_07_dti_fail",
+      "title": "DTI stress failure",
+      "product": "HOME_LOAN",
+      "riskTier": "COMPLEX",
+      "approvalRoute": "HYBRID_APPROVAL",
+      "status": "COMPLETED",
+      "gateStatus": "REJECT_OR_REQUEST_LOWER_AMOUNT",
+      "finalAnswer": "REJECT_OR_REQUEST_LOWER_AMOUNT. Current income cannot support a viable restructured amount under the stress DTI cap.",
+      "requiresHumanApproval": false,
+      "customerRequest": {
+        "requestedHomeLoanAmount": 2200000000,
+        "requestedTermMonths": 300,
+        "requestedPromotionalRate": "7.5%",
+        "requestedDtiStress": "280.0%",
+        "requestedLtv": "62.9%"
+      },
+      "systemProposal": {
+        "homeLoanAmount": null,
+        "maxAffordableHomeLoanAmount": 0,
+        "termMonths": 360,
+        "promotionalRate": "7.5%",
+        "floatingRate": "11.5%",
+        "stressDti": "107.8%",
+        "ltv": "0.0%",
+        "pricing": "Insurance is optional and is not an input to pricing.",
+        "monthlyObligations": [
+          {
+            "scenario": "PROMOTIONAL_12M",
+            "homeEmi": 0,
+            "autoLoanEmi": 14400000,
+            "cardObligation": 5000000,
+            "dti": "107.8%"
+          },
+          {
+            "scenario": "FLOATING",
+            "homeEmi": 0,
+            "autoLoanEmi": 14400000,
+            "cardObligation": 5000000,
+            "dti": "107.8%"
+          },
+          {
+            "scenario": "STRESS",
+            "homeEmi": 0,
+            "autoLoanEmi": 14400000,
+            "cardObligation": 5000000,
+            "dti": "107.8%"
+          }
+        ]
+      },
+      "conditions": [],
+      "executionActions": [
+        {
+          "tool": "audit.append_event",
+          "sideEffect": "LOW",
+          "status": "APPENDED",
+          "requiresApprovalToken": false,
+          "message": "REJECT_OR_REQUEST_LOWER_AMOUNT audit event appended."
+        }
+      ],
+      "governance": {
+        "tier": "COMPLEX",
+        "approvalRoute": "HYBRID_APPROVAL",
+        "modelCallsUsed": 4,
+        "modelCallsBudget": 8,
+        "estimatedCostUsd": 0.12,
+        "maxCostUsd": 0.25,
+        "rawPiiToLlm": false,
+        "maskedFieldCount": 4,
+        "replayMode": true,
+        "cacheHitCount": 2
+      },
+      "traces": [
+        {
+          "id": "trace-router-ab19c889-4d70-4c56-ad75-37a3ce85aebe",
+          "runId": "REQ-KHCN-007a781a-33e3-4dc1-93ff-3e8c0378e939",
+          "agent": "router",
+          "task": "Route request and choose approval lane",
+          "status": "completed",
+          "summary": "COMPLEX tier selected from risk_router_inputs.",
+          "toolCalls": [
+            {
+              "toolName": "risk_router.route",
+              "input": {
+                "loan_amount": 2200000000,
+                "collateral_type": "FUTURE_APARTMENT",
+                "income_sources_count": 2,
+                "has_unverified_income": false,
+                "has_external_debt": true,
+                "is_future_property": true
+              },
+              "output": {
+                "tier": "COMPLEX",
+                "approval_route": "HYBRID_APPROVAL",
+                "agents_required": [
+                  "CREDIT",
+                  "LEGAL",
+                  "OPERATIONS"
+                ],
+                "rule_id": "SHB-RISK-ROUTER-001"
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.356Z",
+          "completedAt": "2026-07-18T02:26:00.356Z"
+        },
+        {
+          "id": "trace-planner-e2a5fa4b-0c1a-422f-a6d1-ead80854545d",
+          "runId": "REQ-KHCN-007a781a-33e3-4dc1-93ff-3e8c0378e939",
+          "agent": "planner",
+          "task": "Build dependency graph",
+          "status": "completed",
+          "summary": "Planner launched Credit, Legal, Operations, and Compliance Gate paths.",
+          "toolCalls": [
+            {
+              "toolName": "planner.build_dependency_graph",
+              "input": {
+                "case_id": "case_07_dti_fail"
+              },
+              "output": {
+                "graph": [
+                  "router",
+                  "planner",
+                  "credit",
+                  "legal",
+                  "compliance_gate",
+                  "operations"
+                ]
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.356Z",
+          "completedAt": "2026-07-18T02:26:00.356Z"
+        },
+        {
+          "id": "trace-credit-aea49f0f-889a-47af-8fda-c6ee88057a27",
+          "runId": "REQ-KHCN-007a781a-33e3-4dc1-93ff-3e8c0378e939",
+          "agent": "credit",
+          "task": "Compute affordability and restructure proposal",
+          "status": "completed",
+          "summary": "Restructured proposal cannot stay above the minimum viable amount while passing DTI/LTV.",
+          "toolCalls": [
+            {
+              "toolName": "credit.apply_income_haircut",
+              "input": {
+                "income_sources": [
+                  "SALARY_VIA_SHB",
+                  "FREELANCE_UNVERIFIED",
+                  "RENTAL_WITH_CONTRACT"
+                ]
+              },
+              "output": {
+                "qualified_income_monthly": 18000000,
+                "breakdown": [
+                  {
+                    "source": "SALARY_VIA_SHB",
+                    "declared": 18000000,
+                    "haircutRate": 0,
+                    "qualified": 18000000
+                  },
+                  {
+                    "source": "FREELANCE_UNVERIFIED",
+                    "declared": 0,
+                    "haircutRate": 0.5,
+                    "qualified": 0
+                  },
+                  {
+                    "source": "RENTAL_WITH_CONTRACT",
+                    "declared": 0,
+                    "haircutRate": 0.3,
+                    "qualified": 0
+                  }
+                ]
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "credit.dti_stress_test",
+              "input": {
+                "home_loan_amount": 2200000000,
+                "term_months": 300,
+                "stress_rate": 0.135
+              },
+              "output": {
+                "home_emi_stress": 25600000,
+                "total_monthly_obligations": 50400000,
+                "dti": 2.8,
+                "dti_display": "280.0%",
+                "dti_pass": false,
+                "ltv": 0.6286,
+                "ltv_display": "62.9%",
+                "ltv_pass": true
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "credit.restructure_optimizer",
+              "input": {
+                "requested_amount": 2200000000,
+                "requested_term_months": 300,
+                "dti_cap": 0.6,
+                "ltv_cap": 0.7
+              },
+              "output": {
+                "proposed_amount": 0,
+                "affordable_home_loan_amount_30y_stress": 0,
+                "proposed_term_months": 360,
+                "dti_stress": 1.0778,
+                "dti_display": "107.8%",
+                "ltv": 0,
+                "ltv_display": "0.0%",
+                "proposal_passes": false,
+                "levers": [
+                  "REFINANCE_EXTERNAL_DEBT",
+                  "REDUCE_CARD_LIMIT",
+                  "EXTEND_TERM",
+                  "REDUCE_LOAN_AMOUNT"
+                ]
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.356Z",
+          "completedAt": "2026-07-18T02:26:00.356Z"
+        },
+        {
+          "id": "trace-gate-e5bf9674-395c-4d4e-870f-778d5eea3dc3",
+          "runId": "REQ-KHCN-007a781a-33e3-4dc1-93ff-3e8c0378e939",
+          "agent": "gate",
+          "task": "Run Compliance Gate",
+          "status": "completed",
+          "summary": "Gate returned REJECT_OR_REQUEST_LOWER_AMOUNT.",
+          "toolCalls": [
+            {
+              "toolName": "compliance_gate.evaluate",
+              "input": {
+                "credit_pass": false,
+                "legal_findings": [],
+                "prompt_injection_detected": false
+              },
+              "output": {
+                "gate_status": "REJECT_OR_REQUEST_LOWER_AMOUNT",
+                "final_home_loan_amount": null,
+                "binding_dti_display": "107.8%",
+                "ltv_display": "0.0%"
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.356Z",
+          "completedAt": "2026-07-18T02:26:00.356Z"
+        }
+      ],
+      "audit": [
+        {
+          "id": "audit-0a94aaaf-0463-4b84-9ab9-d1e519dac8f4",
+          "requestId": "REQ-KHCN-007a781a-33e3-4dc1-93ff-3e8c0378e939",
+          "actor": "router",
+          "eventType": "ROUTED",
+          "message": "COMPLEX tier selected.",
+          "timestamp": "2026-07-18T02:26:00.356Z",
+          "metadata": {
+            "approvalRoute": "HYBRID_APPROVAL"
+          }
+        },
+        {
+          "id": "audit-c7afd0ca-4303-41ef-ae1b-a07dd83d9161",
+          "requestId": "REQ-KHCN-007a781a-33e3-4dc1-93ff-3e8c0378e939",
+          "actor": "credit",
+          "eventType": "CREDIT_CALCULATED",
+          "message": "Credit calculations completed deterministically.",
+          "timestamp": "2026-07-18T02:26:00.356Z",
+          "metadata": {
+            "qualifiedIncome": 18000000,
+            "proposedAmount": 0,
+            "stressDti": "107.8%",
+            "ltv": "0.0%"
+          }
+        },
+        {
+          "id": "audit-8643cac1-5e66-425d-b125-9912713b1719",
+          "requestId": "REQ-KHCN-007a781a-33e3-4dc1-93ff-3e8c0378e939",
+          "actor": "gate",
+          "eventType": "REJECT_OR_REQUEST_LOWER_AMOUNT",
+          "message": "Compliance gate returned REJECT_OR_REQUEST_LOWER_AMOUNT.",
+          "timestamp": "2026-07-18T02:26:00.356Z"
+        }
+      ],
+      "createdAt": "2026-07-18T02:26:00.356Z",
+      "updatedAt": "2026-07-18T02:26:00.356Z"
+    },
+    {
+      "requestId": "REQ-KHCN-9cd7108e-1b9d-4d34-8baa-6f0c0cb41d42",
+      "caseId": "case_08_prompt_injection_doc",
+      "title": "Prompt injection inside uploaded document",
+      "product": "HOME_LOAN",
+      "riskTier": "COMPLEX",
+      "approvalRoute": "HYBRID_APPROVAL",
+      "status": "WAITING_HUMAN_APPROVAL",
+      "gateStatus": "CONDITIONAL_PASS",
+      "finalAnswer": "HYBRID_APPROVAL. AI agents recommend CONDITIONAL_PASS at 2250000000 VND/360m, but HIGH actions wait for human_approval_token.",
+      "requiresHumanApproval": true,
+      "customerRequest": {
+        "requestedHomeLoanAmount": 2800000000,
+        "requestedTermMonths": 300,
+        "requestedPromotionalRate": "7.5%",
+        "requestedDtiStress": "75.6%",
+        "requestedLtv": "80.0%"
+      },
+      "systemProposal": {
+        "homeLoanAmount": 2250000000,
+        "maxAffordableHomeLoanAmount": 2250000000,
+        "termMonths": 360,
+        "promotionalRate": "7.5%",
+        "floatingRate": "11.5%",
+        "stressDti": "59.6%",
+        "ltv": "64.3%",
+        "pricing": "Insurance is optional and is not an input to pricing.",
+        "monthlyObligations": [
+          {
+            "scenario": "PROMOTIONAL_12M",
+            "homeEmi": 15700000,
+            "autoLoanEmi": 14400000,
+            "cardObligation": 5000000,
+            "dti": "46.2%"
+          },
+          {
+            "scenario": "FLOATING",
+            "homeEmi": 22300000,
+            "autoLoanEmi": 14400000,
+            "cardObligation": 5000000,
+            "dti": "54.9%"
+          },
+          {
+            "scenario": "STRESS",
+            "homeEmi": 25800000,
+            "autoLoanEmi": 14400000,
+            "cardObligation": 5000000,
+            "dti": "59.6%"
+          }
+        ]
+      },
+      "conditions": [
+        {
+          "conditionId": "MARITAL-COMMON-PROPERTY-001-1",
+          "blocksAt": "CONTRACT_SIGNING",
+          "text": "Collect spouse consent or valid separate-property evidence before contract signing.",
+          "basisRuleId": "MARITAL-COMMON-PROPERTY-001"
+        },
+        {
+          "conditionId": "FUTURE-HOUSING-GUARANTEE-001-2",
+          "blocksAt": "DISBURSEMENT",
+          "text": "Collect missing future-housing project documents before disbursement.",
+          "basisRuleId": "FUTURE-HOUSING-GUARANTEE-001"
+        },
+        {
+          "conditionId": "PDPD-CONSENT-001-3",
+          "blocksAt": "EXTERNAL_DATA_CALL",
+          "text": "External income verification is blocked until INCOME_VERIFICATION_BHXH consent exists.",
+          "basisRuleId": "PDPD-CONSENT-001"
+        }
+      ],
+      "executionActions": [
+        {
+          "tool": "los.create_retail_approval",
+          "sideEffect": "HIGH",
+          "status": "BLOCKED",
+          "requiresApprovalToken": true,
+          "message": "Waiting for human_approval_token."
+        },
+        {
+          "tool": "docs.render_approval_letter",
+          "sideEffect": "HIGH",
+          "status": "BLOCKED",
+          "requiresApprovalToken": true,
+          "message": "Waiting for human_approval_token."
+        },
+        {
+          "tool": "core.create_facility_pending",
+          "sideEffect": "HIGH",
+          "status": "BLOCKED",
+          "requiresApprovalToken": true,
+          "message": "Waiting for human_approval_token."
+        },
+        {
+          "tool": "core.set_condition_precedent",
+          "sideEffect": "HIGH",
+          "status": "BLOCKED",
+          "requiresApprovalToken": true,
+          "message": "Waiting for human_approval_token."
+        },
+        {
+          "tool": "notification.send_customer_checklist",
+          "sideEffect": "HIGH",
+          "status": "BLOCKED",
+          "requiresApprovalToken": true,
+          "message": "Waiting for human_approval_token."
+        },
+        {
+          "tool": "audit.append_event",
+          "sideEffect": "LOW",
+          "status": "APPENDED",
+          "requiresApprovalToken": false,
+          "message": "Hybrid conditional pass audit event appended."
+        }
+      ],
+      "governance": {
+        "tier": "COMPLEX",
+        "approvalRoute": "HYBRID_APPROVAL",
+        "modelCallsUsed": 5,
+        "modelCallsBudget": 8,
+        "estimatedCostUsd": 0.14,
+        "maxCostUsd": 0.25,
+        "rawPiiToLlm": false,
+        "maskedFieldCount": 4,
+        "replayMode": true,
+        "cacheHitCount": 2
+      },
+      "traces": [
+        {
+          "id": "trace-router-83c0b4cf-a573-421a-9415-5a21db2c86f9",
+          "runId": "REQ-KHCN-9cd7108e-1b9d-4d34-8baa-6f0c0cb41d42",
+          "agent": "router",
+          "task": "Route request and choose approval lane",
+          "status": "completed",
+          "summary": "COMPLEX tier selected from risk_router_inputs.",
+          "toolCalls": [
+            {
+              "toolName": "risk_router.route",
+              "input": {
+                "loan_amount": 2800000000,
+                "collateral_type": "FUTURE_APARTMENT",
+                "income_sources_count": 2,
+                "has_unverified_income": false,
+                "has_external_debt": true,
+                "is_future_property": true
+              },
+              "output": {
+                "tier": "COMPLEX",
+                "approval_route": "HYBRID_APPROVAL",
+                "agents_required": [
+                  "CREDIT",
+                  "LEGAL",
+                  "OPERATIONS"
+                ],
+                "rule_id": "SHB-RISK-ROUTER-001"
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.361Z",
+          "completedAt": "2026-07-18T02:26:00.361Z"
+        },
+        {
+          "id": "trace-planner-e1853378-d34f-4ffe-a915-3beff227a86b",
+          "runId": "REQ-KHCN-9cd7108e-1b9d-4d34-8baa-6f0c0cb41d42",
+          "agent": "planner",
+          "task": "Build dependency graph",
+          "status": "completed",
+          "summary": "Planner launched Credit, Legal, Operations, and Compliance Gate paths.",
+          "toolCalls": [
+            {
+              "toolName": "planner.build_dependency_graph",
+              "input": {
+                "case_id": "case_08_prompt_injection_doc"
+              },
+              "output": {
+                "graph": [
+                  "router",
+                  "planner",
+                  "credit",
+                  "legal",
+                  "compliance_gate",
+                  "operations"
+                ]
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.361Z",
+          "completedAt": "2026-07-18T02:26:00.361Z"
+        },
+        {
+          "id": "trace-credit-557651ff-16a0-45ab-829d-b858fbe73678",
+          "runId": "REQ-KHCN-9cd7108e-1b9d-4d34-8baa-6f0c0cb41d42",
+          "agent": "credit",
+          "task": "Compute affordability and restructure proposal",
+          "status": "completed",
+          "summary": "Restructured proposal passes at 2250000000 VND over 360 months.",
+          "toolCalls": [
+            {
+              "toolName": "credit.apply_income_haircut",
+              "input": {
+                "income_sources": [
+                  "SALARY_VIA_SHB",
+                  "FREELANCE_UNVERIFIED",
+                  "RENTAL_WITH_CONTRACT"
+                ]
+              },
+              "output": {
+                "qualified_income_monthly": 75900000,
+                "breakdown": [
+                  {
+                    "source": "SALARY_VIA_SHB",
+                    "declared": 55000000,
+                    "haircutRate": 0,
+                    "qualified": 55000000
+                  },
+                  {
+                    "source": "FREELANCE_UNVERIFIED",
+                    "declared": 25000000,
+                    "haircutRate": 0.5,
+                    "qualified": 12500000
+                  },
+                  {
+                    "source": "RENTAL_WITH_CONTRACT",
+                    "declared": 12000000,
+                    "haircutRate": 0.3,
+                    "qualified": 8400000
+                  }
+                ]
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "credit.dti_stress_test",
+              "input": {
+                "home_loan_amount": 2800000000,
+                "term_months": 300,
+                "stress_rate": 0.135
+              },
+              "output": {
+                "home_emi_stress": 32600000,
+                "total_monthly_obligations": 57400000,
+                "dti": 0.7563,
+                "dti_display": "75.6%",
+                "dti_pass": false,
+                "ltv": 0.8,
+                "ltv_display": "80.0%",
+                "ltv_pass": false
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "credit.restructure_optimizer",
+              "input": {
+                "requested_amount": 2800000000,
+                "requested_term_months": 300,
+                "dti_cap": 0.6,
+                "ltv_cap": 0.7
+              },
+              "output": {
+                "proposed_amount": 2250000000,
+                "affordable_home_loan_amount_30y_stress": 2250000000,
+                "proposed_term_months": 360,
+                "dti_stress": 0.5955,
+                "dti_display": "59.6%",
+                "ltv": 0.6429,
+                "ltv_display": "64.3%",
+                "proposal_passes": true,
+                "levers": [
+                  "REFINANCE_EXTERNAL_DEBT",
+                  "REDUCE_CARD_LIMIT",
+                  "EXTEND_TERM",
+                  "REDUCE_LOAN_AMOUNT"
+                ]
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.361Z",
+          "completedAt": "2026-07-18T02:26:00.361Z"
+        },
+        {
+          "id": "trace-legal-fb8a3279-533c-40ce-ba65-fcb6051c105c",
+          "runId": "REQ-KHCN-9cd7108e-1b9d-4d34-8baa-6f0c0cb41d42",
+          "agent": "legal",
+          "task": "Apply retail legal and compliance rule pack",
+          "status": "completed",
+          "summary": "4 legal/compliance finding(s) produced from parsed documents and consent registry.",
+          "toolCalls": [
+            {
+              "toolName": "legal.tctd_insurance_tying_001",
+              "input": {
+                "rule_id": "TCTD-INSURANCE-TYING-001"
+              },
+              "output": {
+                "status": "VIOLATION",
+                "severity": "BLOCKER",
+                "blocks_at": "APPROVAL",
+                "calculation": {
+                  "tyingDetected": true,
+                  "rateIfInsurancePurchased": 0.072,
+                  "rateIfInsuranceDeclined": 0.085,
+                  "inputsUsed": [
+                    "customer_segment",
+                    "relationship_years",
+                    "salary_via_bank",
+                    "insurance_purchase"
+                  ]
+                }
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "legal.marital_common_property_001",
+              "input": {
+                "rule_id": "MARITAL-COMMON-PROPERTY-001"
+              },
+              "output": {
+                "status": "PASS_WITH_CONDITION",
+                "severity": "CONDITION",
+                "blocks_at": "CONTRACT_SIGNING",
+                "calculation": {
+                  "requiresSpouseConsent": true
+                }
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "legal.future_housing_guarantee_001",
+              "input": {
+                "rule_id": "FUTURE-HOUSING-GUARANTEE-001"
+              },
+              "output": {
+                "status": "PASS_WITH_CONDITION",
+                "severity": "CONDITION",
+                "blocks_at": "DISBURSEMENT",
+                "calculation": {
+                  "projectEligible": false,
+                  "missingProjectDocuments": [
+                    "bank_guarantee_certificate",
+                    "lien_release_for_unit"
+                  ]
+                }
+              },
+              "status": "success"
+            },
+            {
+              "toolName": "legal.pdpd_consent_001",
+              "input": {
+                "rule_id": "PDPD-CONSENT-001"
+              },
+              "output": {
+                "status": "CONSENT_REQUIRED",
+                "severity": "BLOCKER",
+                "blocks_at": "EXTERNAL_DATA_CALL",
+                "calculation": {
+                  "scopeRequested": "INCOME_VERIFICATION_BHXH",
+                  "consentValid": false,
+                  "outboundCallsMade": 0
+                }
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.361Z",
+          "completedAt": "2026-07-18T02:26:00.361Z"
+        },
+        {
+          "id": "trace-system-4d778bfe-3665-461b-9c46-df7e1396d229",
+          "runId": "REQ-KHCN-9cd7108e-1b9d-4d34-8baa-6f0c0cb41d42",
+          "agent": "system",
+          "task": "Scan prompt injection and PII leakage",
+          "status": "completed",
+          "summary": "Prompt injection detected, stripped, and audited before model use.",
+          "toolCalls": [
+            {
+              "toolName": "prompt_injection_guard.scan",
+              "input": {
+                "scanned_sources": [
+                  "/parsed_docs/loan_application_parsed.json/fields/free_text_notes"
+                ]
+              },
+              "output": {
+                "rule_id": "SHB-INJECTION-GUARD-RETAIL-001",
+                "injection_detected": true,
+                "matched_patterns": [
+                  "ignore (all )?(previous |prior )?(legal |compliance )?(check|instruction|rule)",
+                  "approve (this )?(loan|facility) (immediately|without)"
+                ],
+                "instruction_followed": false,
+                "span_stripped_before_model": true
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.361Z",
+          "completedAt": "2026-07-18T02:26:00.361Z"
+        },
+        {
+          "id": "trace-gate-a358a3e8-31fb-4009-a8db-98be4a89d850",
+          "runId": "REQ-KHCN-9cd7108e-1b9d-4d34-8baa-6f0c0cb41d42",
+          "agent": "gate",
+          "task": "Run Compliance Gate",
+          "status": "completed",
+          "summary": "Gate returned CONDITIONAL_PASS.",
+          "toolCalls": [
+            {
+              "toolName": "compliance_gate.evaluate",
+              "input": {
+                "credit_pass": true,
+                "legal_findings": [
+                  "TCTD-INSURANCE-TYING-001",
+                  "MARITAL-COMMON-PROPERTY-001",
+                  "FUTURE-HOUSING-GUARANTEE-001",
+                  "PDPD-CONSENT-001"
+                ],
+                "prompt_injection_detected": true
+              },
+              "output": {
+                "gate_status": "CONDITIONAL_PASS",
+                "final_home_loan_amount": 2250000000,
+                "binding_dti_display": "59.6%",
+                "ltv_display": "64.3%"
+              },
+              "status": "success"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.361Z",
+          "completedAt": "2026-07-18T02:26:00.361Z"
+        },
+        {
+          "id": "trace-operations-6f8b6d79-ce4d-4750-8e14-555bad2a9376",
+          "runId": "REQ-KHCN-9cd7108e-1b9d-4d34-8baa-6f0c0cb41d42",
+          "agent": "operations",
+          "task": "Prepare execution and enforce approval guard",
+          "status": "blocked",
+          "summary": "HIGH write tools are blocked until human_approval_token exists.",
+          "toolCalls": [
+            {
+              "toolName": "external.verify_income_bhxh",
+              "input": {
+                "consent_scope": "INCOME_VERIFICATION_BHXH"
+              },
+              "output": {
+                "status": "BLOCKED",
+                "error": "ConsentRequired",
+                "outbound_calls_made": 0
+              },
+              "status": "failed"
+            },
+            {
+              "toolName": "los.create_retail_approval",
+              "input": {
+                "approval_route": "HYBRID_APPROVAL",
+                "human_approval_token": null
+              },
+              "output": {
+                "status": "BLOCKED",
+                "error": "Missing human_approval_token"
+              },
+              "status": "failed"
+            }
+          ],
+          "startedAt": "2026-07-18T02:26:00.361Z",
+          "completedAt": "2026-07-18T02:26:00.361Z"
+        }
+      ],
+      "audit": [
+        {
+          "id": "audit-f0e4677d-9f9a-4f8a-8ae6-9c86fcb82f5d",
+          "requestId": "REQ-KHCN-9cd7108e-1b9d-4d34-8baa-6f0c0cb41d42",
+          "actor": "router",
+          "eventType": "ROUTED",
+          "message": "COMPLEX tier selected.",
+          "timestamp": "2026-07-18T02:26:00.361Z",
+          "metadata": {
+            "approvalRoute": "HYBRID_APPROVAL"
+          }
+        },
+        {
+          "id": "audit-f2abe141-26ea-465f-a5c1-97dff671d99f",
+          "requestId": "REQ-KHCN-9cd7108e-1b9d-4d34-8baa-6f0c0cb41d42",
+          "actor": "credit",
+          "eventType": "CREDIT_CALCULATED",
+          "message": "Credit calculations completed deterministically.",
+          "timestamp": "2026-07-18T02:26:00.361Z",
+          "metadata": {
+            "qualifiedIncome": 75900000,
+            "proposedAmount": 2250000000,
+            "stressDti": "59.6%",
+            "ltv": "64.3%"
+          }
+        },
+        {
+          "id": "audit-72d44043-aaef-45ec-b1e6-53f1935f304b",
+          "requestId": "REQ-KHCN-9cd7108e-1b9d-4d34-8baa-6f0c0cb41d42",
+          "actor": "legal",
+          "eventType": "VIOLATION",
+          "message": "TCTD-INSURANCE-TYING-001 fired.",
+          "timestamp": "2026-07-18T02:26:00.361Z",
+          "metadata": {
+            "blocksAt": "APPROVAL"
+          }
+        },
+        {
+          "id": "audit-28e8f841-bf73-49f7-8788-9e1fd03f9e97",
+          "requestId": "REQ-KHCN-9cd7108e-1b9d-4d34-8baa-6f0c0cb41d42",
+          "actor": "legal",
+          "eventType": "PASS_WITH_CONDITION",
+          "message": "MARITAL-COMMON-PROPERTY-001 fired.",
+          "timestamp": "2026-07-18T02:26:00.361Z",
+          "metadata": {
+            "blocksAt": "CONTRACT_SIGNING"
+          }
+        },
+        {
+          "id": "audit-67f6c6c6-5027-4011-8852-19ea55496416",
+          "requestId": "REQ-KHCN-9cd7108e-1b9d-4d34-8baa-6f0c0cb41d42",
+          "actor": "legal",
+          "eventType": "PASS_WITH_CONDITION",
+          "message": "FUTURE-HOUSING-GUARANTEE-001 fired.",
+          "timestamp": "2026-07-18T02:26:00.361Z",
+          "metadata": {
+            "blocksAt": "DISBURSEMENT"
+          }
+        },
+        {
+          "id": "audit-64ad835f-6560-4c7e-903b-30918e247f60",
+          "requestId": "REQ-KHCN-9cd7108e-1b9d-4d34-8baa-6f0c0cb41d42",
+          "actor": "legal",
+          "eventType": "CONSENT_REQUIRED",
+          "message": "PDPD-CONSENT-001 fired.",
+          "timestamp": "2026-07-18T02:26:00.361Z",
+          "metadata": {
+            "blocksAt": "EXTERNAL_DATA_CALL"
+          }
+        },
+        {
+          "id": "audit-fd8c232d-8478-42d9-a0f4-3f51620c5ace",
+          "requestId": "REQ-KHCN-9cd7108e-1b9d-4d34-8baa-6f0c0cb41d42",
+          "actor": "gate",
+          "eventType": "CONDITIONAL_PASS",
+          "message": "Compliance gate returned CONDITIONAL_PASS.",
+          "timestamp": "2026-07-18T02:26:00.361Z"
+        },
+        {
+          "id": "audit-837b3d4e-3b06-4b14-8f42-46ecf1218f75",
+          "requestId": "REQ-KHCN-9cd7108e-1b9d-4d34-8baa-6f0c0cb41d42",
+          "actor": "model_gateway",
+          "eventType": "PROMPT_INJECTION_DETECTED",
+          "message": "Injection span stripped before model use.",
+          "timestamp": "2026-07-18T02:26:00.361Z",
+          "metadata": {
+            "matchedPatterns": [
+              "ignore (all )?(previous |prior )?(legal |compliance )?(check|instruction|rule)",
+              "approve (this )?(loan|facility) (immediately|without)"
+            ]
+          }
+        }
+      ],
+      "createdAt": "2026-07-18T02:26:00.361Z",
+      "updatedAt": "2026-07-18T02:26:00.361Z"
+    }
+  ]
+}

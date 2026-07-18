@@ -4,6 +4,7 @@ import { Badge } from "../../components/Badge";
 import { Skeleton } from "../../components/Skeleton";
 import { TypingIndicator } from "../../components/TypingIndicator";
 import { useOrchestrationStore } from "../../store/orchestrationStore";
+import { ApprovalGate } from "./ApprovalGate";
 import styles from "./FinalAnswerPanel.module.css";
 
 export const FinalAnswerPanel = () => {
@@ -125,6 +126,8 @@ export const FinalAnswerPanel = () => {
           </ul>
         </div>
       )}
+
+      {response.budgetStatus?.highWritesBeforeApproval === 1 && !response.approvalTicketId && <ApprovalGate />}
     </Card>
   );
 };

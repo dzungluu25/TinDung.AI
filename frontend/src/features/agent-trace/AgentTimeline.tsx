@@ -59,7 +59,20 @@ const StepRow = ({ step, isLast }: { step: PipelineStep; isLast: boolean }) => {
 
         {step.status === "done" && step.trace && (
           <>
-            <p className={styles.summary}>{step.trace.summary}</p>
+            <p className={styles.summary}>{
+              (function formatInsight(summary: string) {
+                if (!summary) return summary;
+                if (summary.includes("Classified intent as CREDIT_APPRAISAL")) return "Phân loại: Yêu cầu thẩm định tín dụng hợp lệ. Bắt đầu luồng xử lý tự động.";
+                if (summary.includes("Classified intent as")) return "Đã phân loại yêu cầu của khách hàng.";
+                if (summary.includes("BLOCKED_DUE_TO_API_ERROR") || summary.includes("Tool call failed")) return "⚠️ Lỗi kết nối API tới hệ thống nội bộ. Hệ thống tự động ghi nhận rủi ro.";
+                if (summary.includes("Fallback decision: REJECTED")) return "❌ Hệ thống tự động từ chối yêu cầu do thiếu dữ liệu hoặc đánh giá rủi ro cao.";
+                if (summary.includes("Fallback decision: APPROVED")) return "✅ Đã phê duyệt tự động dựa trên các quy tắc an toàn.";
+                if (summary.includes("Missing required findings")) return "Phát hiện thiếu thông tin quan trọng từ các hồ sơ, cần chuyên viên bổ sung.";
+                if (summary.includes("Confidence score too low")) return "Điểm tin cậy của AI quá thấp. Cần chuyên viên kiểm tra lại.";
+                if (summary.includes("All rules passed")) return "Tất cả các tiêu chí an toàn và quy định đều đạt yêu cầu.";
+                return summary;
+              })(step.trace.summary)
+            }</p>
             {step.trace.findings && <FindingsList findings={step.trace.findings} />}
             <ToolCallLog toolCalls={step.trace.toolCalls} />
             {step.trace.completedAt && <span className={styles.timestamp}>{formatTimestamp(step.trace.completedAt)}</span>}

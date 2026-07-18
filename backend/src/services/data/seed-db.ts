@@ -32,6 +32,22 @@ export const seedDatabases = async () => {
       );
     `);
 
+    // Create the workflow_definitions table backing the additive, user-composed
+    // "workflow designer" engine — separate from retail_cases/orchestration_runs, which
+    // belong to the audited retail-credit pipeline.
+    await pgQuery(`
+      CREATE TABLE IF NOT EXISTS workflow_definitions (
+        id VARCHAR(60) PRIMARY KEY,
+        name VARCHAR(200) NOT NULL,
+        nodes JSONB NOT NULL,
+        edges JSONB NOT NULL,
+        settings JSONB NOT NULL,
+        created_by VARCHAR(100) NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+    `);
+
     // Create the append-only, hash-chained audit log table required for regulatory audit trails.
     await pgQuery(`
       CREATE TABLE IF NOT EXISTS audit_events (

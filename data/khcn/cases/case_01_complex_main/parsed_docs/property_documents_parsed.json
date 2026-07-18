@@ -1,5 +1,43 @@
 {
   "document_type": "property_documents",
+  "_provenance": {
+    "document_id": "DOC-KHCN-01-PROPERTY",
+    "source_hash": "sha256:khcn-case01-property-v1",
+    "provider": "fixture-json-with-provenance",
+    "extracted_at": "2026-07-18T00:00:00.000Z",
+    "pages": [
+      {
+        "page_number": 1,
+        "confidence": 0.96,
+        "bbox_count": 9
+      },
+      {
+        "page_number": 2,
+        "confidence": 0.94,
+        "bbox_count": 5
+      }
+    ],
+    "fields": [
+      {
+        "path": "/fields/property/value_used_for_ltv",
+        "page_number": 1,
+        "bbox": [64, 136, 248, 160],
+        "confidence": 0.96
+      },
+      {
+        "path": "/fields/property/spouse_signature_present",
+        "page_number": 2,
+        "bbox": [64, 190, 280, 214],
+        "confidence": 0.94
+      },
+      {
+        "path": "/fields/project_documents/bank_guarantee_certificate_present",
+        "page_number": 2,
+        "bbox": [64, 244, 332, 268],
+        "confidence": 0.95
+      }
+    ]
+  },
   "fields": {
     "property": {
       "project_code": "PRJ-GUARANTEED-001",

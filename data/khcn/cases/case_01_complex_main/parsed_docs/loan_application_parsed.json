@@ -1,5 +1,38 @@
 {
   "document_type": "loan_application",
+  "_provenance": {
+    "document_id": "DOC-KHCN-01-LOAN-APPLICATION",
+    "source_hash": "sha256:khcn-case01-loan-application-v1",
+    "provider": "fixture-json-with-provenance",
+    "extracted_at": "2026-07-18T00:00:00.000Z",
+    "pages": [
+      {
+        "page_number": 1,
+        "confidence": 0.99,
+        "bbox_count": 5
+      }
+    ],
+    "fields": [
+      {
+        "path": "/fields/borrower/customer_id",
+        "page_number": 1,
+        "bbox": [48, 84, 228, 108],
+        "confidence": 0.99
+      },
+      {
+        "path": "/fields/borrower/age",
+        "page_number": 1,
+        "bbox": [48, 112, 124, 136],
+        "confidence": 0.99
+      },
+      {
+        "path": "/fields/requested_product",
+        "page_number": 1,
+        "bbox": [48, 168, 248, 192],
+        "confidence": 0.98
+      }
+    ]
+  },
   "fields": {
     "borrower": {
       "customer_id": "CUST001",

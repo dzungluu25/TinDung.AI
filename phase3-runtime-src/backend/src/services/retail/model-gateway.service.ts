@@ -5,6 +5,7 @@ import { getDocumentIngestionStatus } from "../ingestion/document-ingestion.serv
 import { getWorkflowQueueStatus } from "../workflow/workflow-queue.service";
 import { maskPiiForModel } from "../security/pii-masker.service";
 import { RetailCaseRun } from "../../types/orchestration.types";
+import { findKhcnCaseFixture } from "./case-fixture.service";
 import { nowIso } from "./retail-common";
 
 interface ModelGatewayCallInput {
@@ -224,6 +225,48 @@ export const explainRetailDecision = async (summary: Record<string, unknown>) =>
 const asRecord = (value: unknown): Record<string, unknown> =>
   value && typeof value === "object" ? (value as Record<string, unknown>) : {};
 
+const asString = (value: unknown, fallback = "") => (typeof value === "string" ? value : fallback);
+
+const asNumber = (value: unknown, fallback = 0) => (typeof value === "number" ? value : fallback);
+
+const asRecordArray = (value: unknown): Record<string, unknown>[] =>
+  Array.isArray(value) ? value.map(asRecord) : [];
+
+const collectDocumentEvidence = async (caseId: string) => {
+  const fixture = await findKhcnCaseFixture(caseId);
+  if (!fixture) {
+    return [];
+  }
+
+  return Object.entries(fixture.parsedDocs).map(([documentName, document]) => {
+    const provenance = asRecord(asRecord(document)._provenance);
+    const pages = asRecordArray(provenance.pages);
+    const fields = asRecordArray(provenance.fields);
+    const confidenceValues = [
+      ...pages.map((page) => asNumber(page.confidence, Number.NaN)),
+      ...fields.map((field) => asNumber(field.confidence, Number.NaN)),
+    ].filter(Number.isFinite);
+    const minConfidence = confidenceValues.length > 0 ? Math.min(...confidenceValues) : undefined;
+    const bboxCount =
+      pages.reduce((sum, page) => sum + asNumber(page.bbox_count ?? page.bboxCount, 0), 0) +
+      fields.filter((field) => Array.isArray(field.bbox)).length;
+    const sourceHash = asString(provenance.source_hash ?? provenance.sourceHash);
+    const hasGrounding = Boolean(sourceHash) && pages.length > 0 && fields.length > 0 && minConfidence !== undefined;
+
+    return {
+      documentName,
+      documentId: asString(provenance.document_id ?? provenance.documentId, documentName),
+      provider: asString(provenance.provider, "unknown"),
+      sourceHash,
+      pageCount: pages.length,
+      minConfidence,
+      bboxCount,
+      fieldEvidenceCount: fields.length,
+      status: hasGrounding ? "PASS" : "WARN",
+    };
+  });
+};
+
 const collectRuleIds = (run: RetailCaseRun) => {
   const ids = new Set<string>();
   run.conditions.forEach((condition) => ids.add(condition.basisRuleId));
@@ -316,6 +359,7 @@ const buildReviewerChecklist = (run: RetailCaseRun) => {
 
 export const buildRetailGovernanceReport = async (run: RetailCaseRun) => {
   const ruleIds = collectRuleIds(run);
+  const documentEvidence = await collectDocumentEvidence(run.caseId);
   const query = [
     run.caseId,
     run.gateStatus,
@@ -331,6 +375,7 @@ export const buildRetailGovernanceReport = async (run: RetailCaseRun) => {
   const highActionsExecuted = highActions.length > 0 && highActions.every((action) => action.status !== "BLOCKED");
   const approvalIntent = `APPROVE:${run.requestId}:${run.gateStatus}:${run.conditions.length}`;
   const sourceLockedEvidenceCount = ruleEvidence.filter((evidence) => evidence.sourceType).length;
+  const documentsWithProvenance = documentEvidence.filter((document) => document.status === "PASS").length;
 
   const controls = [
     {
@@ -361,6 +406,12 @@ export const buildRetailGovernanceReport = async (run: RetailCaseRun) => {
       label: "LLM gateway safety mode",
       status: modelGateway.enabled && modelGateway.configured ? "PASS" : "WARN",
       evidence: modelGateway.enabled && modelGateway.configured ? "Live model gateway configured." : "Deterministic fallback is active; live model gateway is disabled or unconfigured.",
+    },
+    {
+      id: "DOCUMENT_PROVENANCE",
+      label: "Document provenance",
+      status: documentEvidence.length > 0 && documentsWithProvenance === documentEvidence.length ? "PASS" : "WARN",
+      evidence: `${documentsWithProvenance}/${documentEvidence.length} parsed document artifact(s) include source hash, page confidence, and field bounding boxes.`,
     },
     {
       id: "DOCUMENT_INGESTION",
@@ -411,6 +462,7 @@ export const buildRetailGovernanceReport = async (run: RetailCaseRun) => {
     controls,
     reviewerChecklist: buildReviewerChecklist(run),
     ruleEvidence,
+    documentEvidence,
     modelGateway,
     auditCoverage: {
       auditEvents: run.audit.length,

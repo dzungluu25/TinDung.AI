@@ -189,6 +189,31 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
 
           <Card>
             <CardHeader>
+              <CardTitle>Document Provenance</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              {governance.documentEvidence.length === 0 && (
+                <p className="text-sm text-n500">No parsed document provenance is attached.</p>
+              )}
+              {governance.documentEvidence.map((document) => (
+                <div key={document.documentId} className="border border-n300 rounded-sm p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-mono text-xs font-semibold text-n900">{document.documentName}</span>
+                    <Badge variant={statusTone(document.status)}>{document.status}</Badge>
+                  </div>
+                  <p className="text-xs text-n500 mt-2 font-mono break-all">{document.sourceHash}</p>
+                  <div className="grid grid-cols-3 gap-2 mt-3 text-xs text-n700">
+                    <span>{document.pageCount} page(s)</span>
+                    <span>{document.bboxCount} bbox</span>
+                    <span>{document.minConfidence?.toFixed(2) ?? "-"} min conf</span>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle>Rule Evidence</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">

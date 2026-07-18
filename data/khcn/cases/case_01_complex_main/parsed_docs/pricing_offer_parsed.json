@@ -1,5 +1,38 @@
 {
   "document_type": "pricing_offer",
+  "_provenance": {
+    "document_id": "DOC-KHCN-01-PRICING",
+    "source_hash": "sha256:khcn-case01-pricing-v1",
+    "provider": "fixture-json-with-provenance",
+    "extracted_at": "2026-07-18T00:00:00.000Z",
+    "pages": [
+      {
+        "page_number": 1,
+        "confidence": 0.97,
+        "bbox_count": 5
+      }
+    ],
+    "fields": [
+      {
+        "path": "/fields/initial_offer/inputs_used",
+        "page_number": 1,
+        "bbox": [58, 112, 312, 136],
+        "confidence": 0.97
+      },
+      {
+        "path": "/fields/initial_offer/rate_if_insurance_purchased",
+        "page_number": 1,
+        "bbox": [58, 168, 248, 192],
+        "confidence": 0.98
+      },
+      {
+        "path": "/fields/initial_offer/rate_if_insurance_declined",
+        "page_number": 1,
+        "bbox": [58, 204, 248, 228],
+        "confidence": 0.98
+      }
+    ]
+  },
   "fields": {
     "initial_offer": {
       "inputs_used": [
