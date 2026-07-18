@@ -9,6 +9,7 @@ const pgDatabase = process.env.PG_DB || "vaic_db";
 export const pgPool = process.env.SUPABASE_DB_URL 
   ? new Pool({ 
       connectionString: process.env.SUPABASE_DB_URL,
+      ssl: { rejectUnauthorized: false },
       max: 20,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 2000,

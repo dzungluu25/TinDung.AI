@@ -70,7 +70,7 @@ const TOOLS: ChatCompletionTool[] = [
           clauseId: {
             type: "string",
             enum: LEGAL_LLM_CONTRACT.allowedClauseIds,
-            description: "ID điều khoản, ví dụ: Clause-Insurance-Tying, Clause-Marital-Property, Clause-Future-Property, Clause-Loan-Purpose, Clause-DTI-Limit, Clause-LTV-Limit, Clause-Tenure-Limit, Clause-CIC-History",
+            description: "ID điều khoản trong catalog đã được kiểm soát, gồm nguồn luật chính thức và policy nội bộ được gắn trạng thái xác minh.",
           },
         },
         required: ["clauseId"],

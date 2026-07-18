@@ -3,6 +3,7 @@ import { supabase } from "../../config/supabase";
 import { getNeo4jSession } from "../../config/neo4j";
 import { RETAIL_CASES } from "./retail-case-data";
 import { setupOrchestrationCheckpointer } from "../orchestration/orchestration-graph";
+import { seedLegalKnowledgeGraph } from "./knowledge-graph-seed.service";
 
 export const seedDatabases = async () => {
   console.log("=== STARTING DATABASE SEED PROCESS ===");
@@ -117,152 +118,41 @@ export const seedDatabases = async () => {
     const session = getNeo4jSession();
     
     try {
-      // Clear old graph data
-      await session.run("MATCH (n) DETACH DELETE n;");
-      console.log("Neo4j: Cleared existing nodes and relationships.");
-
-      // Create Regulations & Clauses nodes
-      await session.run(`
-        CREATE (reg1:Regulation {
-          regId: "VN-CREDIT-INSTITUTIONS-2024",
-          title: "Luật Các tổ chức tín dụng 32/2024/QH15",
-          issuedBy: "Quốc hội",
-          effectiveDate: "2024-07-01"
-        })
-
-        CREATE (regMarriage:Regulation {
-          regId: "VN-MARRIAGE-FAMILY-2014",
-          title: "Luật Hôn nhân và gia đình 52/2014/QH13",
-          issuedBy: "Quốc hội",
-          effectiveDate: "2015-01-01"
-        })
-
-        CREATE (regRealEstate:Regulation {
-          regId: "VN-REAL-ESTATE-2023",
-          title: "Luật Kinh doanh bất động sản 29/2023/QH15",
-          issuedBy: "Quốc hội",
-          effectiveDate: "2024-08-01"
-        })
-        
-        CREATE (c1:Clause {
-          clauseId: "Clause-Insurance-Tying",
-          code: "32/2024/QH15-15.5",
-          summary: "Cấm ép bán kèm bảo hiểm",
-          description: "Nghiêm cấm tổ chức tín dụng ràng buộc điều kiện mua bảo hiểm nhân thọ liên kết để giải ngân hoặc ưu đãi lãi suất vay của khách hàng.",
-          vetoPower: true
-        })
-        
-        CREATE (c2:Clause {
-          clauseId: "Clause-Marital-Property",
-          code: "52/2014/QH13-35",
-          summary: "Tài sản hôn nhân chung",
-          description: "Đối với tài sản thế chấp hình thành trong thời kỳ hôn nhân, hợp đồng thế chấp phải có chữ ký của cả hai vợ chồng.",
-          vetoPower: false
-        })
-        
-        CREATE (c3:Clause {
-          clauseId: "Clause-Future-Property",
-          code: "29/2023/QH15-26",
-          summary: "Bảo lãnh dự án hình thành tương lai",
-          description: "Trước khi bán nhà ở hình thành trong tương lai, chủ đầu tư phải được ngân hàng thương mại đủ điều kiện chấp thuận cấp bảo lãnh nghĩa vụ tài chính, trừ trường hợp khách hàng lựa chọn không có bảo lãnh theo Điều 26 Luật Kinh doanh bất động sản 2023.",
-          vetoPower: true
-        })
-
-        CREATE (c4:Clause {
-          clauseId: "Clause-Loan-Purpose",
-          code: "DEMO-INTERNAL-LOAN-PURPOSE",
-          summary: "Kiểm tra tính hợp pháp của mục đích vay",
-          description: "Rule demo nội bộ: mục đích vay cần được xác minh và không thuộc hoạt động bị pháp luật cấm. Cần Pháp chế ánh xạ văn bản cụ thể trước production.",
-          vetoPower: true
-        })
-
-        CREATE (reg1)-[:HAS_CLAUSE]->(c1)
-        CREATE (regMarriage)-[:HAS_CLAUSE]->(c2)
-        CREATE (regRealEstate)-[:HAS_CLAUSE]->(c3)
-
-        CREATE (reg2:Regulation {
-          regId: "DEMO-Retail-Credit-Policy-2026",
-          title: "Quy tắc tín dụng bán lẻ dùng trong bản demo - chưa được SHB phê duyệt",
-          issuedBy: "Nhóm dự án VAIC",
-          effectiveDate: "2026-01-01"
-        })
-
-        CREATE (c5:Clause {
-          clauseId: "Clause-DTI-Limit",
-          code: "SHB-CR-DTI",
-          summary: "Giới hạn tỷ lệ nợ trên thu nhập (DTI)",
-          description: "Tỷ lệ trả nợ trên thu nhập (DTI - Debt-to-Income) đối với sản phẩm cho vay tiêu dùng/vay mua nhà tối đa không vượt quá 60% thu nhập khả dụng hàng tháng sau khi đã áp dụng hệ số giảm trừ rủi ro (haircut).",
-          vetoPower: false
-        })
-
-        CREATE (c6:Clause {
-          clauseId: "Clause-LTV-Limit",
-          code: "SHB-CR-LTV",
-          summary: "Giới hạn tỷ lệ cho vay trên giá trị tài sản thế chấp (LTV)",
-          description: "Tỷ lệ cho vay trên giá trị tài sản bảo đảm (LTV) tối đa là 80% đối với bất động sản đã hoàn công/đất thổ cư, và tối đa 70% đối với tài sản hình thành trong tương lai/căn hộ dự án.",
-          vetoPower: false
-        })
-
-        CREATE (c7:Clause {
-          clauseId: "Clause-Tenure-Limit",
-          code: "SHB-CR-TENURE",
-          summary: "Thời hạn cho vay tối đa",
-          description: "Thời gian vay tối đa đối với sản phẩm vay mua nhà dự án là 25 năm, vay mua nhà đất thổ cư là 20 năm, và vay mua ô tô tiêu dùng là 8 năm.",
-          vetoPower: false
-        })
-
-        CREATE (reg2)-[:HAS_CLAUSE]->(c5)
-        CREATE (reg2)-[:HAS_CLAUSE]->(c6)
-        CREATE (reg2)-[:HAS_CLAUSE]->(c7)
-        CREATE (reg2)-[:HAS_CLAUSE]->(c4)
-
-        CREATE (reg3:Regulation {
-          regId: "DEMO-CIC-HISTORY-POLICY",
-          title: "Rule lịch sử CIC dùng trong bản demo - cần chủ sở hữu chính sách phê duyệt",
-          issuedBy: "Nhóm dự án VAIC",
-          effectiveDate: "2026-01-01"
-        })
-
-        CREATE (c8:Clause {
-          clauseId: "Clause-CIC-History",
-          code: "DEMO-INTERNAL-CIC",
-          summary: "Kiểm tra lịch sử tín dụng CIC",
-          description: "Rule demo nội bộ về lịch sử nợ xấu. Thời gian quan sát và tác động phán quyết phải lấy từ chính sách tín dụng đã được phê duyệt trước production.",
-          vetoPower: true
-        })
-
-        CREATE (reg3)-[:HAS_CLAUSE]->(c8)
-      `);
+      // The versioned graph catalog is merged instead of clearing Neo4j on every boot.
+      // This preserves externally curated nodes while keeping application-owned nodes
+      // and relationships idempotently up to date.
+      await seedLegalKnowledgeGraph(session);
 
       // Create Collateral Projects
       await session.run(`
-        CREATE (p1:Project {
-          projectCode: "VIN-OCEANPARK-3",
-          name: "Vinhomes Ocean Park 3",
-          developer: "Vingroup",
-          isGuaranteedBySHB: true,
-          guaranteeContractNo: "SHB-VAP-2025-008"
-        })
-        
-        CREATE (p2:Project {
-          projectCode: "GALAXY-DIRTY-PROJECT",
-          name: "Galaxy Complex",
-          developer: "Galaxy Group",
-          isGuaranteedBySHB: false,
-          guaranteeContractNo: ""
-        })
+        MERGE (p1:Project {projectCode: "VIN-OCEANPARK-3"})
+        SET p1.name = "Vinhomes Ocean Park 3",
+            p1.developer = "Vingroup",
+            p1.isGuaranteedBySHB = true,
+            p1.guaranteeContractNo = "SHB-VAP-2025-008",
+            p1.evidenceSource = "PROJECT_GUARANTEE_REGISTRY",
+            p1.verificationStatus = "DEMO_ONLY",
+            p1.lastVerifiedAt = "2026-07-18"
+        MERGE (p2:Project {projectCode: "GALAXY-DIRTY-PROJECT"})
+        SET p2.name = "Galaxy Complex",
+            p2.developer = "Galaxy Group",
+            p2.isGuaranteedBySHB = false,
+            p2.guaranteeContractNo = "",
+            p2.evidenceSource = "PROJECT_GUARANTEE_REGISTRY",
+            p2.verificationStatus = "DEMO_ONLY",
+            p2.lastVerifiedAt = "2026-07-18"
 
         WITH p1, p2
         MATCH (c3:Clause {clauseId: "Clause-Future-Property"})
         MATCH (c6:Clause {clauseId: "Clause-LTV-Limit"})
 
-        CREATE (p1)-[:GOVERNED_BY]->(c3)
-        CREATE (p2)-[:GOVERNED_BY]->(c3)
-        CREATE (p1)-[:GOVERNED_BY]->(c6)
-        CREATE (p2)-[:GOVERNED_BY]->(c6)
+        MERGE (p1)-[:GOVERNED_BY]->(c3)
+        MERGE (p2)-[:GOVERNED_BY]->(c3)
+        MERGE (p1)-[:GOVERNED_BY]->(c6)
+        MERGE (p2)-[:GOVERNED_BY]->(c6)
       `);
 
-      console.log("Neo4j: Seeded policy clauses and property projects graph successfully.");
+      console.log("Neo4j: Seeded versioned documents, clauses, policy rules, gates and property evidence successfully.");
     } finally {
       await session.close();
     }
