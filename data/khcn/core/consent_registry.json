@@ -1,0 +1,21 @@
+{
+  "records": [
+    {
+      "customer_id": "CUST001",
+      "granted_scopes": [
+        "CREDIT_ASSESSMENT"
+      ],
+      "valid_until": "2027-12-31",
+      "source": "LOCAL_PHASE_2_FIXTURE"
+    },
+    {
+      "customer_id": "CUST002",
+      "granted_scopes": [
+        "CREDIT_ASSESSMENT",
+        "INCOME_VERIFICATION_BHXH"
+      ],
+      "valid_until": "2027-12-31",
+      "source": "LOCAL_PHASE_2_FIXTURE"
+    }
+  ]
+}

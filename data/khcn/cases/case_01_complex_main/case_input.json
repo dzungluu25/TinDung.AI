@@ -1,0 +1,39 @@
+{
+  "_meta": {
+    "case_id": "case_01_complex_main",
+    "title": "Hybrid home loan with refinance optimization",
+    "objective": "Run a realistic KHCN home-loan case through router, credit, legal, gate, audit, and human approval guard.",
+    "traps": []
+  },
+  "customer_id": "CUST001",
+  "product": "HOME_LOAN",
+  "target_sla_hours": 24,
+  "documents": [
+    "parsed_docs/loan_application_parsed.json",
+    "parsed_docs/income_documents_parsed.json",
+    "parsed_docs/property_documents_parsed.json",
+    "parsed_docs/debt_documents_parsed.json",
+    "parsed_docs/pricing_offer_parsed.json"
+  ],
+  "risk_router_inputs": {
+    "loan_amount": 2800000000,
+    "collateral_type": "FUTURE_APARTMENT",
+    "income_sources_count": 2,
+    "has_unverified_income": false,
+    "has_external_debt": true,
+    "is_future_property": true
+  },
+  "requested_home_loan": {
+    "amount": 2800000000,
+    "term_months": 300,
+    "purpose": "Buy a future apartment project with bank guarantee evidence.",
+    "requested_promotional_rate": 0.075,
+    "floating_rate_after_promo_customer_expected": 0.115
+  },
+  "refinance_request": {
+    "external_auto_loan_outstanding": 450000000,
+    "current_rate": 0.115,
+    "remaining_term_months": 36,
+    "target_shb_rate": 0.095
+  }
+}

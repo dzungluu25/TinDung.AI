@@ -1,0 +1,76 @@
+{
+  "pack_id": "KHCN_INTERNAL_POLICY_PHASE3",
+  "rules": [
+    {
+      "rule_id": "SHB-RISK-ROUTER-001",
+      "title": "Retail request routing policy",
+      "source_type": "INTERNAL_POLICY_DEMO",
+      "source_name": "Retail Credit Operating Model",
+      "severity": "CONTROL",
+      "rule_type": "ROUTING",
+      "blocks_at": "NONE",
+      "input_fields": [
+        "loan_amount",
+        "collateral_type",
+        "income_sources_count",
+        "has_unverified_income",
+        "has_external_debt",
+        "is_future_property"
+      ],
+      "logic": "Small clean unsecured/deposit-backed cases may enter FAST/AUTO_APPROVAL; future-property, refinance, external-debt, or unverified-income cases must enter COMPLEX/HYBRID_APPROVAL.",
+      "plain_finding": "The router must choose the least privileged approval lane that still covers the risk profile.",
+      "required_fix_template": "If any complexity signal is present, route to hybrid review with credit, legal, and operations traces."
+    },
+    {
+      "rule_id": "SHB-DTI-STRESS-001",
+      "title": "Debt service stress affordability",
+      "source_type": "INTERNAL_POLICY_DEMO",
+      "source_name": "Retail Credit DTI Policy",
+      "severity": "BLOCKER",
+      "rule_type": "CREDIT",
+      "blocks_at": "APPROVAL",
+      "input_fields": [
+        "qualified_income_monthly",
+        "home_loan_amount",
+        "auto_loan_emi",
+        "card_obligation",
+        "stress_rate"
+      ],
+      "parameters": {
+        "dti_cap": 0.6,
+        "stress_rate": 0.135,
+        "max_maturity_age": 65
+      },
+      "logic": "The final proposal must keep stressed monthly obligations at or below 60% of qualified monthly income and mature before age 65.",
+      "plain_finding": "If the minimum viable proposal cannot pass the stress DTI cap, reject or request a lower amount.",
+      "required_fix_template": "Reduce requested amount, extend term within policy, refinance qualifying external debt, or request additional verified income."
+    },
+    {
+      "rule_id": "SHB-LTV-RETAIL-001",
+      "title": "Collateral LTV cap",
+      "source_type": "INTERNAL_POLICY_DEMO",
+      "source_name": "Retail Collateral Policy",
+      "severity": "BLOCKER",
+      "rule_type": "CREDIT",
+      "blocks_at": "APPROVAL",
+      "parameters": {
+        "future_property_ltv_cap": 0.7
+      },
+      "logic": "Future-property home loan exposure must remain at or below 70% of the value used for LTV.",
+      "plain_finding": "The proposal amount is capped by collateral value and product LTV policy.",
+      "required_fix_template": "Lower loan amount or request additional acceptable collateral."
+    },
+    {
+      "rule_id": "APPROVAL-GUARD-HIGH-SIDE-EFFECT-001",
+      "title": "High side-effect approval guard",
+      "source_type": "INTERNAL_POLICY_DEMO",
+      "source_name": "Maker-checker Execution Control",
+      "severity": "BLOCKER",
+      "rule_type": "EXECUTION_GUARD",
+      "blocks_at": "APPROVAL",
+      "logic": "Hybrid HIGH tools such as LOS approval, facility creation, approval-letter rendering, and customer notification must stay blocked until a human approval token is issued.",
+      "plain_finding": "AI may recommend, but only a valid human approval token can unlock HIGH side-effect execution.",
+      "required_fix_template": "Keep HIGH tools in BLOCKED state until reviewer role, intent, and approval token are validated."
+    }
+  ]
+}

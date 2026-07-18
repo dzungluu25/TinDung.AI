@@ -1,0 +1,28 @@
+{
+  "document_type": "income_documents",
+  "fields": {
+    "income_sources": [
+      {
+        "source_type": "SALARY_VIA_SHB",
+        "declared_monthly": 55000000,
+        "employer": "EMPLOYER_TOKEN_001"
+      },
+      {
+        "source_type": "FREELANCE_UNVERIFIED",
+        "declared_monthly": 25000000,
+        "counterparty": "CLIENT_TOKEN_001"
+      },
+      {
+        "source_type": "RENTAL_WITH_CONTRACT",
+        "declared_monthly": 12000000,
+        "tenant": "TENANT_TOKEN_001"
+      }
+    ]
+  },
+  "derived_inputs_for_tools": {
+    "qualified_income_monthly": {
+      "value": 75900000,
+      "basis": "Salary via SHB at 100%; freelance unverified at 50%; rental with contract at 70%."
+    }
+  }
+}

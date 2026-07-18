@@ -1,0 +1,45 @@
+{
+  "_meta": {
+    "case_id": "case_04_marital_missing_spouse",
+    "title": "Marital property signature condition",
+    "objective": "Require spouse consent before contract signing for common marital property.",
+    "base_case": "case_01_complex_main"
+  },
+  "overrides": [
+    {
+      "pointer": "/parsed_docs/pricing_offer_parsed.json#/fields/initial_offer/inputs_used",
+      "value": [
+        "customer_segment",
+        "relationship_years",
+        "salary_via_bank"
+      ]
+    },
+    {
+      "pointer": "/parsed_docs/pricing_offer_parsed.json#/fields/initial_offer/rate_if_insurance_purchased",
+      "value": 0.075
+    },
+    {
+      "pointer": "/parsed_docs/pricing_offer_parsed.json#/fields/initial_offer/rate_if_insurance_declined",
+      "value": 0.075
+    },
+    {
+      "pointer": "/parsed_docs/property_documents_parsed.json#/fields/property/spouse_signature_present",
+      "value": false
+    },
+    {
+      "pointer": "/parsed_docs/property_documents_parsed.json#/fields/project_documents/bank_guarantee_certificate_present",
+      "value": true
+    },
+    {
+      "pointer": "/parsed_docs/property_documents_parsed.json#/fields/project_documents/lien_release_for_unit_present",
+      "value": true
+    },
+    {
+      "pointer": "/core/consent_registry.json#/records/0/granted_scopes",
+      "value": [
+        "CREDIT_ASSESSMENT",
+        "INCOME_VERIFICATION_BHXH"
+      ]
+    }
+  ]
+}

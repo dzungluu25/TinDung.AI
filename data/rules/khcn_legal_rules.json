@@ -1,0 +1,84 @@
+{
+  "pack_id": "KHCN_LEGAL_RULES_PHASE3",
+  "rules": [
+    {
+      "rule_id": "TCTD-INSURANCE-TYING-001",
+      "title": "Optional insurance must not affect credit pricing",
+      "source_type": "LEGAL_RULE_PACK",
+      "source_name": "Vietnam retail lending compliance rule pack",
+      "severity": "BLOCKER",
+      "rule_type": "LEGAL_COMPLIANCE",
+      "blocks_at": "APPROVAL",
+      "input_fields": [
+        "pricing_offer.inputs_used",
+        "rate_if_insurance_purchased",
+        "rate_if_insurance_declined"
+      ],
+      "logic": "If optional insurance appears as a pricing input or creates different lending rates, the approval must be stopped and replanned.",
+      "plain_finding": "Insurance tying is an approval blocker; the offer must be rebuilt without using insurance purchase as a condition.",
+      "required_fix_template": "Remove insurance_purchase from pricing inputs and recalculate the offer with identical rate treatment."
+    },
+    {
+      "rule_id": "MARITAL-COMMON-PROPERTY-001",
+      "title": "Common marital property signing condition",
+      "source_type": "LEGAL_RULE_PACK",
+      "source_name": "Vietnam collateral documentation control",
+      "severity": "CONDITION",
+      "rule_type": "LEGAL_DOCUMENTATION",
+      "blocks_at": "CONTRACT_SIGNING",
+      "input_fields": [
+        "acquired_during_marriage",
+        "separate_property_evidence",
+        "spouse_signature_present"
+      ],
+      "logic": "If collateral was acquired during marriage and no separate-property evidence exists, spouse consent or signature is required before contract signing.",
+      "plain_finding": "The credit decision may continue, but contract signing must wait for spouse consent or evidence.",
+      "required_fix_template": "Collect spouse consent, spouse signature, or accepted separate-property evidence before contract signing."
+    },
+    {
+      "rule_id": "FUTURE-HOUSING-GUARANTEE-001",
+      "title": "Future housing project guarantee condition",
+      "source_type": "LEGAL_RULE_PACK",
+      "source_name": "Future-property disbursement control",
+      "severity": "CONDITION",
+      "rule_type": "LEGAL_DOCUMENTATION",
+      "blocks_at": "DISBURSEMENT",
+      "input_fields": [
+        "is_future_property",
+        "bank_guarantee_certificate_present",
+        "lien_release_for_unit_present"
+      ],
+      "logic": "Future-property disbursement must wait until the project guarantee certificate and lien-release evidence are present.",
+      "plain_finding": "The case may be conditionally approved, but disbursement remains blocked until project documents are complete.",
+      "required_fix_template": "Collect bank guarantee certificate and lien-release evidence before disbursement."
+    },
+    {
+      "rule_id": "PDPD-CONSENT-001",
+      "title": "External income verification consent",
+      "source_type": "DATA_PROTECTION_RULE_PACK",
+      "source_name": "Personal data processing consent control",
+      "severity": "BLOCKER",
+      "rule_type": "DATA_CONSENT",
+      "blocks_at": "EXTERNAL_DATA_CALL",
+      "input_fields": [
+        "customer_id",
+        "granted_scopes"
+      ],
+      "logic": "External income verification is forbidden unless the customer has granted INCOME_VERIFICATION_BHXH consent.",
+      "plain_finding": "No outbound income verification call may be made without valid consent.",
+      "required_fix_template": "Request valid customer consent before calling external income verification."
+    },
+    {
+      "rule_id": "SHB-INJECTION-GUARD-RETAIL-001",
+      "title": "Prompt injection document guard",
+      "source_type": "SECURITY_RULE_PACK",
+      "source_name": "AI safety control",
+      "severity": "BLOCKER",
+      "rule_type": "AI_SECURITY",
+      "blocks_at": "MODEL_GATEWAY",
+      "logic": "Document text containing instructions such as ignoring prior rules or approving without checks must be stripped and audited before model use.",
+      "plain_finding": "Prompt-injection content is detected as untrusted document data, not an instruction to the system.",
+      "required_fix_template": "Strip matched spans, keep deterministic controls active, and record the security trace."
+    }
+  ]
+}

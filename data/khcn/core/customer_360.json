@@ -1,0 +1,22 @@
+{
+  "customers": [
+    {
+      "customer_id": "CUST001",
+      "name": "Nguyen Minh An",
+      "age": 35,
+      "segment": "mass_affluent",
+      "relationship_years": 6,
+      "cic_status": "CURRENT",
+      "risk_flags": []
+    },
+    {
+      "customer_id": "CUST002",
+      "name": "Tran Bao Linh",
+      "age": 29,
+      "segment": "payroll",
+      "relationship_years": 3,
+      "cic_status": "CURRENT",
+      "risk_flags": []
+    }
+  ]
+}

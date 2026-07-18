@@ -1,0 +1,15 @@
+{
+  "document_type": "pricing_offer",
+  "fields": {
+    "initial_offer": {
+      "inputs_used": [
+        "customer_segment",
+        "relationship_years",
+        "salary_via_bank",
+        "insurance_purchase"
+      ],
+      "rate_if_insurance_purchased": 0.072,
+      "rate_if_insurance_declined": 0.085
+    }
+  }
+}

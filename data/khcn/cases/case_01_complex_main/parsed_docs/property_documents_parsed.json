@@ -1,0 +1,19 @@
+{
+  "document_type": "property_documents",
+  "fields": {
+    "property": {
+      "project_code": "PRJ-GUARANTEED-001",
+      "is_future_property": true,
+      "contract_price": 3500000000,
+      "appraised_value": 3500000000,
+      "value_used_for_ltv": 3500000000,
+      "acquired_during_marriage": true,
+      "separate_property_evidence": false,
+      "spouse_signature_present": false
+    },
+    "project_documents": {
+      "bank_guarantee_certificate_present": false,
+      "lien_release_for_unit_present": false
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "_meta": {
+    "case_id": "case_02_fast_clean",
+    "title": "Fast clean unsecured payroll loan",
+    "objective": "Route a small, clean payroll case through deterministic auto approval.",
+    "traps": []
+  },
+  "customer_id": "CUST002",
+  "product": "UNSECURED_PERSONAL_LOAN",
+  "target_sla_hours": 1,
+  "documents": [],
+  "risk_router_inputs": {
+    "loan_amount": 150000000,
+    "collateral_type": "NONE_OR_DEPOSIT_BACKED",
+    "income_sources_count": 1,
+    "has_unverified_income": false,
+    "has_external_debt": false,
+    "is_future_property": false
+  },
+  "requested_loan": {
+    "amount": 150000000,
+    "term_months": 36,
+    "purpose": "Payroll customer personal loan."
+  }
+}

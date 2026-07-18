@@ -1,0 +1,69 @@
+{
+  "_meta": {
+    "case_id": "case_07_dti_fail",
+    "title": "DTI stress failure",
+    "objective": "Reject or request lower amount when income cannot support a viable restructure.",
+    "base_case": "case_01_complex_main"
+  },
+  "overrides": [
+    {
+      "pointer": "/parsed_docs/pricing_offer_parsed.json#/fields/initial_offer/inputs_used",
+      "value": [
+        "customer_segment",
+        "relationship_years",
+        "salary_via_bank"
+      ]
+    },
+    {
+      "pointer": "/parsed_docs/pricing_offer_parsed.json#/fields/initial_offer/rate_if_insurance_purchased",
+      "value": 0.075
+    },
+    {
+      "pointer": "/parsed_docs/pricing_offer_parsed.json#/fields/initial_offer/rate_if_insurance_declined",
+      "value": 0.075
+    },
+    {
+      "pointer": "/parsed_docs/property_documents_parsed.json#/fields/property/spouse_signature_present",
+      "value": true
+    },
+    {
+      "pointer": "/parsed_docs/property_documents_parsed.json#/fields/project_documents/bank_guarantee_certificate_present",
+      "value": true
+    },
+    {
+      "pointer": "/parsed_docs/property_documents_parsed.json#/fields/project_documents/lien_release_for_unit_present",
+      "value": true
+    },
+    {
+      "pointer": "/core/consent_registry.json#/records/0/granted_scopes",
+      "value": [
+        "CREDIT_ASSESSMENT",
+        "INCOME_VERIFICATION_BHXH"
+      ]
+    },
+    {
+      "pointer": "/parsed_docs/income_documents_parsed.json#/fields/income_sources/0/declared_monthly",
+      "value": 18000000
+    },
+    {
+      "pointer": "/parsed_docs/income_documents_parsed.json#/fields/income_sources/1/declared_monthly",
+      "value": 0
+    },
+    {
+      "pointer": "/parsed_docs/income_documents_parsed.json#/fields/income_sources/2/declared_monthly",
+      "value": 0
+    },
+    {
+      "pointer": "/parsed_docs/income_documents_parsed.json#/derived_inputs_for_tools/qualified_income_monthly/value",
+      "value": 18000000
+    },
+    {
+      "pointer": "/case_input.json#/requested_home_loan/amount",
+      "value": 2200000000
+    },
+    {
+      "pointer": "/case_input.json#/risk_router_inputs/loan_amount",
+      "value": 2200000000
+    }
+  ]
+}

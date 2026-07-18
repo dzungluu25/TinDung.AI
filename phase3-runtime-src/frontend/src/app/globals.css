@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+@theme {
+  /* Colors */
+  --color-n100: #FFFFFF; /* Background */
+  --color-n300: #E5E7EB; /* Border/Subtle Background */
+  --color-n500: #6B7280; /* Secondary Text */
+  --color-n700: #374151; /* Primary Text */
+  --color-n900: #111827; /* High Contrast Text / Headlines */
+
+  --color-accent: #2563EB; /* Brand Blue */
+  --color-accent-hover: #1D4ED8; 
+
+  --color-success: #16A34A;
+  --color-warning: #D97706;
+  --color-error: #DC2626;
+  
+  --color-background: var(--color-n100);
+  --color-foreground: var(--color-n900);
+
+  /* Typography */
+  --font-sans: Arial, Helvetica, sans-serif;
+  --font-mono: "Courier New", Consolas, monospace;
+
+  /* Type Scale */
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-base: 16px;
+  --text-lg: 20px;
+  --text-xl: 24px;
+  --text-2xl: 32px;
+  --text-3xl: 40px;
+
+  /* Line Heights */
+  --leading-body: 1.5;
+  --leading-heading: 1.2;
+
+  /* Spacing */
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-5: 20px;
+  --spacing-6: 24px;
+  --spacing-8: 32px;
+  --spacing-10: 40px;
+  --spacing-12: 48px;
+  --spacing-16: 64px;
+
+  /* Border Radius */
+  --radius-sm: 4px;
+  --radius-md: 4px; /* Strict constraint: 1 fixed value */
+  --radius-lg: 4px;
+  --radius-xl: 4px;
+
+  /* Elevation */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+@layer base {
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    line-height: var(--leading-body);
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    line-height: var(--leading-heading);
+    color: var(--color-n900);
+    font-weight: 600;
+  }
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

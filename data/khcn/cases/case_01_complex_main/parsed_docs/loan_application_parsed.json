@@ -1,0 +1,13 @@
+{
+  "document_type": "loan_application",
+  "fields": {
+    "borrower": {
+      "customer_id": "CUST001",
+      "name": "NAME_TOKEN_001",
+      "age": 35,
+      "marital_status": "married"
+    },
+    "requested_product": "HOME_LOAN",
+    "free_text_notes": "Customer asks for standard bank assessment without special instruction."
+  }
+}

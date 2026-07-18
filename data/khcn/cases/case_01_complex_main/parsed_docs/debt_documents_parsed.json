@@ -1,0 +1,14 @@
+{
+  "document_type": "debt_documents",
+  "fields": {
+    "auto_loan_other_bank": {
+      "outstanding": 450000000,
+      "annual_rate": 0.115,
+      "remaining_term_months": 36
+    },
+    "credit_card_other_bank": {
+      "limit": 200000000,
+      "current_balance": 48000000
+    }
+  }
+}
