@@ -7,12 +7,26 @@ import { decisionPolicy } from "../../config/policy";
  * - Freelance: 50% haircut (coefficient = 0.5)
  * - Rental: 30% haircut (coefficient = 0.7)
  */
-export const calculateIncomeAfterHaircut = (incomeSources: IncomeSource[]): number => {
+export const calculateIncomeAfterHaircut = (
+  incomeSources: IncomeSource[],
+  incomeRecognitionFactors: Record<IncomeSource["type"], number> = decisionPolicy.credit.incomeRecognitionFactors
+): number => {
   return incomeSources.reduce((total, source) => {
-    const coefficient = decisionPolicy.credit.incomeRecognitionFactors[source.type];
+    const coefficient = incomeRecognitionFactors[source.type];
     return total + Math.round(source.amount * coefficient);
   }, 0);
 };
+
+/**
+ * Subtracts the policy's minimum monthly living expense floor from recognized income
+ * before it's used for DTI, so a thin-margin borrower's affordability isn't overstated.
+ * Never goes negative — a borrower with insufficient income after the floor simply has
+ * zero disposable income for DTI purposes, which the downstream DTI check will reject.
+ */
+export const applyLivingExpenseFloor = (
+  validIncome: number,
+  minimumMonthlyLivingExpenseVnd: number = decisionPolicy.credit.minimumMonthlyLivingExpenseVnd
+): number => Math.max(0, validIncome - minimumMonthlyLivingExpenseVnd);
 
 /**
  * Calculates current monthly debt obligations:

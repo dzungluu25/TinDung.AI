@@ -6,6 +6,7 @@ import { AuthenticatedRequest } from "../middleware/auth.middleware";
 import { AGENT_CONTRACTS } from "../services/orchestration/agent-role-registry";
 import { OrchestrationInputError } from "../services/orchestration/input-router.service";
 import { toPublicOrchestrationError } from "../services/orchestration/orchestration-error.service";
+import { regulatoryBaseline } from "../config/policy";
 
 export const orchestratePrompt = async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -80,3 +81,6 @@ export const getRunTraces = async (req: AuthenticatedRequest, res: Response) => 
 
 export const getAgentContracts = async (_req: AuthenticatedRequest, res: Response) =>
   res.status(200).json({ agents: AGENT_CONTRACTS });
+
+export const getRegulatoryBaseline = async (_req: AuthenticatedRequest, res: Response) =>
+  res.status(200).json(regulatoryBaseline);

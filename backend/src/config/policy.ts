@@ -2,11 +2,13 @@ import decisionPolicyJson from "../policy/decision-policy.json";
 import routingCatalogJson from "../policy/routing-catalog.json";
 import productCatalogJson from "../policy/product-catalog.json";
 import agentContractsJson from "../policy/agent-contracts.json";
-import { IncomeSource } from "../types/case.types";
+import regulatoryBaselineJson from "../policy/regulatory-baseline.json";
+import { IncomeSource, PropertyInfo } from "../types/case.types";
 import { ProductOption } from "../types/agent.types";
 import { AgentContract } from "../types/product.types";
 
 type IncomeType = IncomeSource["type"];
+type PropertyType = PropertyInfo["type"];
 
 export interface DecisionPolicy {
   policyId: string;
@@ -15,8 +17,10 @@ export interface DecisionPolicy {
   routing: { minimumPromptCharacters: number; maximumPromptCharacters: number; minimumPromptTokens: number; exactMatchScore: number };
   credit: {
     stressAnnualRate: number; maximumDtiPercent: number; maximumLtvPercent: number; maximumMortgageTenureYears: number;
+    maximumLtvPercentByPropertyType: Record<PropertyType, number>;
     autoRefinanceTenureYears: number; creditLimitReductionFactor: number; creditCardMonthlyObligationRate: number;
     incomeRecognitionFactors: Record<IncomeType, number>;
+    minimumMonthlyLivingExpenseVnd: number;
     ruleIds: Record<"incomeCalculated" | "ltvExceeded" | "dtiExceeded" | "restructurePassed" | "restructureFailed", string>;
   };
   fastLane: { maximumLoanAmountVnd: number; requiredPropertyStatus: string; requiredMaritalStatus: string; requireNoExistingDebt: boolean; allowedIncomeTypes: IncomeType[] };
@@ -53,6 +57,27 @@ export interface ProductCatalog {
   citations: Record<"repricedClean" | "insuranceTying" | "insuranceIndependent", string>;
 }
 
+export interface RegulatoryBaselineRule {
+  ruleId: string;
+  label: string;
+  value: string;
+  citation: string;
+}
+
+export interface RegulatoryBaselineGroup {
+  id: string;
+  title: string;
+  description: string;
+  rules: RegulatoryBaselineRule[];
+}
+
+export interface RegulatoryBaseline {
+  catalogId: string;
+  version: string;
+  scope: string;
+  groups: RegulatoryBaselineGroup[];
+}
+
 const assertPolicyDocument = (name: string, value: unknown): void => {
   if (!value || typeof value !== "object") throw new Error(`${name} is missing or invalid; decision engine is disabled.`);
   const document = value as Record<string, unknown>;
@@ -67,6 +92,7 @@ assertPolicyDocument("decision-policy", decisionPolicyJson);
 assertPolicyDocument("routing-catalog", routingCatalogJson);
 assertPolicyDocument("product-catalog", productCatalogJson);
 assertPolicyDocument("agent-contracts", agentContractsJson);
+assertPolicyDocument("regulatory-baseline", regulatoryBaselineJson);
 
 const parsedDecisionPolicy = decisionPolicyJson as DecisionPolicy;
 [
@@ -85,13 +111,21 @@ if (new Set((productCatalogJson as ProductCatalog).products.map(product => produ
   throw new Error("Product IDs must be unique; decision engine is disabled.");
 }
 
+const parsedRegulatoryBaseline = regulatoryBaselineJson as RegulatoryBaseline;
+const regulatoryRuleIds = parsedRegulatoryBaseline.groups.flatMap(group => group.rules.map(rule => rule.ruleId));
+if (new Set(regulatoryRuleIds).size !== regulatoryRuleIds.length) {
+  throw new Error("Regulatory baseline rule IDs must be unique; decision engine is disabled.");
+}
+
 export const decisionPolicy = Object.freeze(parsedDecisionPolicy);
 export const routingCatalog = Object.freeze(routingCatalogJson as RoutingCatalog);
 export const productCatalog = Object.freeze(productCatalogJson as ProductCatalog);
 export const agentContracts = Object.freeze((agentContractsJson as { contracts: AgentContract[] }).contracts);
+export const regulatoryBaseline = Object.freeze(parsedRegulatoryBaseline);
 export const policyMetadata = Object.freeze({
   decisionPolicy: { id: decisionPolicy.policyId, version: decisionPolicy.version, effectiveFrom: decisionPolicy.effectiveFrom },
   routingCatalog: { id: routingCatalog.catalogId, version: routingCatalog.version },
   productCatalog: { id: productCatalog.catalogId, version: productCatalog.version },
   agentContracts: { id: agentContractsJson.catalogId, version: agentContractsJson.version },
+  regulatoryBaseline: { id: regulatoryBaseline.catalogId, version: regulatoryBaseline.version },
 });

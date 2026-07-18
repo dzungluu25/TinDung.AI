@@ -7,7 +7,6 @@ import { Button } from "../components/Button";
 import { Skeleton } from "../components/Skeleton";
 import { PolicyField } from "../features/policy/PolicyField";
 import { ListEditor } from "../features/policy/ListEditor";
-import { RegulatoryBaseline } from "../features/policy/RegulatoryBaseline";
 import { useSessionStore } from "../store/sessionStore";
 import { getDemoApproverSession } from "../services/authService";
 import { getTenantConfig, putTenantConfig } from "../services/tenantConfigService";
@@ -78,7 +77,7 @@ export const PolicyConsolePage = () => {
   if (config === undefined || !form) {
     return (
       <>
-        <Header eyebrow="Bank policy console" title="Cấu hình chính sách vận hành" subtitle="Đang tải chính sách hiện hành…" />
+        <Header eyebrow="Bank policy console · Cho vay cá nhân" title="Căn cứ chính sách cho thẩm định viên" subtitle="Đang tải chính sách hiện hành…" />
         <div className={styles.grid}>
           {[0, 1, 2, 3].map(i => (
             <Card key={i} title={<Skeleton width={160} height={14} />}>
@@ -127,9 +126,9 @@ export const PolicyConsolePage = () => {
   return (
     <>
       <Header
-        eyebrow="Bank policy console"
-        title="Cấu hình chính sách vận hành"
-        subtitle="Quy định NHNN áp dụng chung toàn ngành, cộng với chính sách vận hành riêng mà ngân hàng của bạn có thể tự tùy chỉnh."
+        eyebrow="Bank policy console · Cho vay cá nhân"
+        title="Căn cứ chính sách cho thẩm định viên"
+        subtitle="Quy định NHNN bắt buộc khi thẩm định hồ sơ vay cá nhân, cộng với chính sách xét duyệt riêng mà ngân hàng của bạn có thể tự tùy chỉnh trong khuôn khổ đó."
         action={
           <span className={styles.currentVersion}>
             <ShieldCheck size={14} />
@@ -144,11 +143,9 @@ export const PolicyConsolePage = () => {
         }
       />
 
-      <RegulatoryBaseline />
-
-      <h2 className={styles.sectionTitle}>Chính sách tùy chỉnh của ngân hàng</h2>
+      <h2 className={styles.sectionTitle}>Chính sách xét duyệt tùy chỉnh của ngân hàng</h2>
       <div className={styles.grid}>
-        <Card title="Ngưỡng rủi ro tín dụng">
+        <Card title="Ngưỡng xét duyệt hồ sơ vay cá nhân">
           <div className={styles.fieldStack}>
             <PolicyField
               label="Điểm tín dụng tối thiểu"

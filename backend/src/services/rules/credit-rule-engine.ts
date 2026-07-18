@@ -96,13 +96,16 @@ export const evaluateCreditRules = (
   validIncome: number,
   currentMonthlyDebt: number,
   retailCase: RetailCase,
-  overrides: {maximumDtiPercent?:number;maximumLtvPercent?:number}={}
+  overrides: {maximumDtiPercent?:number;maximumLtvPercent?:number;maximumLtvPercentByPropertyType?:Record<RetailCase["property"]["type"],number>}={}
 ): CreditAssessmentResult => {
   const findings: DecisionEnvelope[] = [];
   const requestedLoan = retailCase.requestedLoan;
   const propertyValue = retailCase.property.value;
   const maximumDtiPercent=overrides.maximumDtiPercent??creditPolicy.maximumDtiPercent;
-  const maximumLtvPercent=overrides.maximumLtvPercent??creditPolicy.maximumLtvPercent;
+  const maximumLtvPercent=overrides.maximumLtvPercent
+    ?? overrides.maximumLtvPercentByPropertyType?.[retailCase.property.type]
+    ?? creditPolicy.maximumLtvPercentByPropertyType[retailCase.property.type]
+    ?? creditPolicy.maximumLtvPercent;
 
   // 1. Calculate Original Scenario
   const originalEmi = calculateEmi(requestedLoan.amount, creditPolicy.stressAnnualRate, requestedLoan.tenureYears);
