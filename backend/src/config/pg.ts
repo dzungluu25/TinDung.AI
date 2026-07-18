@@ -1,9 +1,14 @@
 import dotenv from "dotenv";
+import path from "path";
+import fs from "fs";
 import { Pool } from "pg";
 
 // Loaded here (not just in config/env.ts) so pgPool's connection string is correct
 // regardless of which module happens to import this file first in the dependency graph.
-dotenv.config();
+const hostEnvPath = path.resolve(__dirname, "../../../.env");
+const dockerEnvPath = path.resolve(__dirname, "../../.env");
+const envPath = fs.existsSync(hostEnvPath) ? hostEnvPath : dockerEnvPath;
+dotenv.config({ path: envPath });
 
 if (!process.env.SUPABASE_DB_URL) {
   throw new Error("SUPABASE_DB_URL is required; Postgres now always connects through Supabase.");

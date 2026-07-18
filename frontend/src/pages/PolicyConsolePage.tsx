@@ -83,11 +83,13 @@ const validate = (draft: TenantRuntimeConfig): FieldErrors => {
 
 export const PolicyConsolePage = () => {
   const { accessToken, tenantId, setSession, clearSession } = useSessionStore();
-  const [config, setConfig] = useState<TenantRuntimeConfig | null | undefined>(undefined);
+  const [config, setConfig] = useState<TenantRuntimeConfig | null>(null);
   const [form, setForm] = useState<TenantRuntimeConfig | null>(null);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [saveState, setSaveState] = useState<"idle" | "saving" | "error" | "success">("idle");
   const [saveMessage, setSaveMessage] = useState<string>();
+  const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
     if (accessToken && tenantId) return;
@@ -96,19 +98,60 @@ export const PolicyConsolePage = () => {
 
   useEffect(() => {
     if (!accessToken || !tenantId) return;
-    setConfig(undefined);
+    setIsLoading(true);
+    setFetchError(null);
     getTenantConfig(tenantId, accessToken)
       .then(result => {
-        setConfig(result);
-        setForm(result ?? buildBlankDraft(tenantId));
+        // Deep-merge with blank defaults so optional/missing sub-fields don't crash the form
+        const blank = buildBlankDraft(tenantId);
+        const merged: TenantRuntimeConfig = result ? {
+          ...blank,
+          ...result,
+          thresholds: {
+            ...blank.thresholds,
+            ...(result.thresholds ?? {}),
+            maxLtvByPropertyType: {
+              ...blank.thresholds.maxLtvByPropertyType,
+              ...(result.thresholds?.maxLtvByPropertyType ?? {}),
+            },
+            incomeHaircuts: {
+              ...blank.thresholds.incomeHaircuts,
+              ...(result.thresholds?.incomeHaircuts ?? {}),
+            },
+            fraud: {
+              ...blank.thresholds.fraud,
+              ...(result.thresholds?.fraud ?? {}),
+            },
+          },
+          runtime: { ...blank.runtime, ...(result.runtime ?? {}) },
+          citationPolicy: { ...blank.citationPolicy, ...(result.citationPolicy ?? {}) },
+        } : blank;
+        setConfig(merged);
+        setForm(merged);
+        setIsLoading(false);
       })
       .catch(err => {
-        setSaveState("error");
-        setSaveMessage(err instanceof ApiError ? err.message : "Không thể tải chính sách hiện tại.");
+        console.error("Failed to load tenant config:", err);
+        if (err instanceof ApiError && err.status === 401) {
+          clearSession();
+          return;
+        }
+        setFetchError(err instanceof ApiError ? err.message : "Không thể tải chính sách hiện tại.");
+        setIsLoading(false);
       });
-  }, [accessToken, tenantId]);
+  }, [accessToken, tenantId, clearSession]);
 
-  if (config === undefined || !form) {
+  if (isLoading || !form) {
+    if (fetchError) {
+      return (
+        <>
+          <Header eyebrow="Bank policy console · Cho vay cá nhân" title="Căn cứ chính sách cho thẩm định viên" subtitle="Gặp sự cố khi tải dữ liệu từ máy chủ." />
+          <div style={{ padding: "20px", color: "var(--color-danger)", background: "var(--color-danger-soft)", borderRadius: "8px", margin: "20px 0" }}>
+            <strong>Không thể tải chính sách hiện tại:</strong> {fetchError}
+          </div>
+        </>
+      );
+    }
     return (
       <>
         <Header eyebrow="Bank policy console · Cho vay cá nhân" title="Căn cứ chính sách cho thẩm định viên" subtitle="Đang tải chính sách hiện hành…" />

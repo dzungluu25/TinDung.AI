@@ -1,6 +1,11 @@
 import dotenv from "dotenv";
+import path from "path";
+import fs from "fs";
 
-dotenv.config();
+const hostEnvPath = path.resolve(__dirname, "../../../.env");
+const dockerEnvPath = path.resolve(__dirname, "../../.env");
+const envPath = fs.existsSync(hostEnvPath) ? hostEnvPath : dockerEnvPath;
+dotenv.config({ path: envPath });
 
 export const config = {
   port: process.env.PORT || 3000,

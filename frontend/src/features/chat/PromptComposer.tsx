@@ -296,13 +296,8 @@ export const PromptComposer = () => {
               Đã trích xuất thông tin thành công! Vui lòng soát xét dữ liệu và chỉnh sửa trước khi bắt đầu thẩm định.
             </div>
           )}
-          <div className={styles.formIntro}>
-            <div>
-              <strong>Hồ sơ tín dụng có cấu trúc</strong>
-              <span>Điền hoặc điều chỉnh các trường bắt buộc (*) để hệ thống thẩm định nhất quán.</span>
-            </div>
-            <span className={styles.requiredNote}>* Bắt buộc</span>
-          </div>
+
+
 
           <fieldset disabled={isRunning} className={styles.section}>
             <legend><UserRound size={16} />1. Thông tin khách hàng</legend>
