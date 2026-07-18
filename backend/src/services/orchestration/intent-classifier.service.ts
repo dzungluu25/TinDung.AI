@@ -1,5 +1,4 @@
-import { getFptMarketplaceClient } from "../../config/fpt-marketplace";
-import { config } from "../../config/env";
+import { createAiCompletion } from "../../config/ai-model-router";
 import { ChatCompletionTool, ChatCompletionMessageParam } from "openai/resources/chat/completions";
 
 export type Intent = "CREDIT_APPRAISAL" | "ADVISORY_QA" | "OUT_OF_DOMAIN";
@@ -60,14 +59,12 @@ const FALLBACK: IntentClassification = {
 
 export const classifyIntent = async (prompt: string): Promise<IntentClassification> => {
   try {
-    const client = getFptMarketplaceClient();
     const messages: ChatCompletionMessageParam[] = [
       { role: "system", content: SYSTEM_PROMPT },
       { role: "user", content: prompt },
     ];
 
-    const response = await client.chat.completions.create({
-      model: config.fptPlannerModel,
+    const response = await createAiCompletion("intent", {
       messages,
       tools: [CLASSIFY_TOOL],
       tool_choice: "required",

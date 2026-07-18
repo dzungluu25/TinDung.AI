@@ -1,5 +1,4 @@
-import { getFptMarketplaceClient } from "../../config/fpt-marketplace";
-import { config } from "../../config/env";
+import { createAiCompletion } from "../../config/ai-model-router";
 import { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 import { AgentTrace } from "../../types/trace.types";
 import { Intent } from "../orchestration/intent-classifier.service";
@@ -46,12 +45,11 @@ export const runAdvisoryAgent = async (runId: string, prompt: string, intent: In
   }
 
   try {
-    const client = getFptMarketplaceClient();
     const messages: ChatCompletionMessageParam[] = [
       { role: "system", content: ADVISORY_SYSTEM_PROMPT },
       { role: "user", content: prompt },
     ];
-    const response = await client.chat.completions.create({ model: config.fptExtractionModel, messages });
+    const response = await createAiCompletion("advisory", { messages });
     const finalAnswer = response.choices[0].message.content?.trim() || "Xin lỗi, tôi chưa thể trả lời câu hỏi này. Vui lòng thử diễn đạt lại.";
 
     return {

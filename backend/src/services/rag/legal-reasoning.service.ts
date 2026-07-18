@@ -1,5 +1,4 @@
-import { getFptMarketplaceClient } from "../../config/fpt-marketplace";
-import { config } from "../../config/env";
+import { createAiCompletion } from "../../config/ai-model-router";
 import legalLlmContractJson from "../../policy/legal-llm-contract.json";
 import { RetailCase, ConsentRegistry } from "../../types/case.types";
 import { DecisionEnvelope } from "../../types/agent.types";
@@ -214,7 +213,6 @@ export const runLegalComplianceReasoning = async (
   prompt: string,
   hasInsuranceTyingSignal: boolean
 ): Promise<LegalReasoningResult> => {
-  const client = getFptMarketplaceClient();
   const toolCallLog: ToolCallTrace[] = [];
 
   // Data minimisation: the model never receives the raw user prompt. Only the narrow,
@@ -238,8 +236,7 @@ export const runLegalComplianceReasoning = async (
   ];
 
   for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
-    const response = await client.chat.completions.create({
-      model: config.fptLegalModel,
+    const response = await createAiCompletion("legal", {
       messages,
       tools: TOOLS,
       tool_choice: "auto",

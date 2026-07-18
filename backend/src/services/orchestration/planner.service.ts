@@ -19,8 +19,7 @@ import { Command } from "@langchain/langgraph";
 import { getLatestApproval, ensurePendingApproval } from "../platform/approval.service";
 import { getTenantConfigVersion } from "../platform/tenant-config.service";
 import { pgQuery } from "../../config/pg";
-import { getFptMarketplaceClient } from "../../config/fpt-marketplace";
-import { config } from "../../config/env";
+import { createAiCompletion } from "../../config/ai-model-router";
 
 // Order matters: within the self-correction chunk, selfCorrectionTrace, productTrace and
 // legalTrace all change simultaneously (one graph step) — scanning selfCorrection before
@@ -58,9 +57,7 @@ QUY TẮC KIỂM DUYỆT:
 
 const doubleCheckAnswerWithLlm = async (finalAnswer: string, originalPrompt: string): Promise<string> => {
   try {
-    const client = getFptMarketplaceClient();
-    const response = await client.chat.completions.create({
-      model: config.fptLegalModel,
+    const response = await createAiCompletion("quality-check", {
       messages: [
         { role: "system", content: DOUBLE_CHECK_SYSTEM_PROMPT },
         { role: "user", content: `Yêu cầu gốc: "${originalPrompt}"\nCâu trả lời cần kiểm duyệt:\n"${finalAnswer}"` }
