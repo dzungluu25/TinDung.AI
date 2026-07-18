@@ -1,7 +1,7 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { ChatCompletionTool, ChatCompletionMessageParam } from "openai/resources/chat/completions";
-import { getFptMarketplaceClient } from "../../config/fpt-marketplace";
+import { createAiCompletion } from "../../config/ai-model-router";
 import { config } from "../../config/env";
 import { buildCreditToolServer } from "./tool-server";
 import { AgentTrace, ToolCallTrace } from "../../types/trace.types";
@@ -80,25 +80,12 @@ export const runPlanningPhase = async (runId: string, caseId: string, riskTier: 
       { role: "user", content: `caseId: ${caseId}\nriskTier: ${riskTier}` },
     ];
 
-    const llmClient = getFptMarketplaceClient();
     for (let iteration = 0; iteration < MAX_PLANNING_ITERATIONS; iteration++) {
-      let response;
-      try {
-        response = await llmClient.chat.completions.create({
-          model: config.fptPlannerModel,
-          messages,
-          tools: openAiTools,
-          tool_choice: "auto",
-        });
-      } catch (primaryError) {
-        console.warn(`Planner model ${config.fptPlannerModel} failed, retrying with fallback model ${config.fptLegalModel}:`, primaryError);
-        response = await llmClient.chat.completions.create({
-          model: config.fptLegalModel,
-          messages,
-          tools: openAiTools,
-          tool_choice: "auto",
-        });
-      }
+      const response = await createAiCompletion("planning", {
+        messages,
+        tools: openAiTools,
+        tool_choice: "auto",
+      });
 
       const message = response.choices[0].message;
       messages.push(message);

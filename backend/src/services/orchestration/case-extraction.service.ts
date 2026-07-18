@@ -1,5 +1,4 @@
-import { getFptMarketplaceClient } from "../../config/fpt-marketplace";
-import { config } from "../../config/env";
+import { createAiCompletion } from "../../config/ai-model-router";
 import { RetailCase } from "../../types/case.types";
 import { ChatCompletionTool, ChatCompletionMessageParam } from "openai/resources/chat/completions";
 
@@ -363,29 +362,16 @@ export const extractCaseFromPrompt = async (prompt: string): Promise<CaseExtract
       }
     }
 
-    const client = getFptMarketplaceClient();
     const messages: ChatCompletionMessageParam[] = [
       { role: "system", content: SYSTEM_PROMPT },
       { role: "user", content: prompt },
     ];
 
-    let response;
-    try {
-      response = await client.chat.completions.create({
-        model: config.fptExtractionModel,
-        messages,
-        tools: TOOLS,
-        tool_choice: "required",
-      });
-    } catch (primaryError) {
-      console.warn(`Extraction model ${config.fptExtractionModel} failed, retrying with fallback model ${config.fptLegalModel}:`, primaryError);
-      response = await client.chat.completions.create({
-        model: config.fptLegalModel,
-        messages,
-        tools: TOOLS,
-        tool_choice: "required",
-      });
-    }
+    const response = await createAiCompletion("extraction", {
+      messages,
+      tools: TOOLS,
+      tool_choice: "required",
+    });
 
     const toolCall = response.choices[0].message.tool_calls?.[0];
     if (!toolCall || toolCall.type !== "function") {
@@ -508,7 +494,6 @@ const DRAFT_TOOLS: ChatCompletionTool[] = [
 
 export const extractDraftCaseFromPrompt = async (prompt: string): Promise<Record<string, unknown>> => {
   try {
-    const client = getFptMarketplaceClient();
     const messages: ChatCompletionMessageParam[] = [
       {
         role: "system",
@@ -517,23 +502,11 @@ export const extractDraftCaseFromPrompt = async (prompt: string): Promise<Record
       { role: "user", content: prompt },
     ];
 
-    let response;
-    try {
-      response = await client.chat.completions.create({
-        model: config.fptExtractionModel,
-        messages,
-        tools: DRAFT_TOOLS,
-        tool_choice: { type: "function", function: { name: "extract_draft_case" } },
-      });
-    } catch (primaryError) {
-      console.warn("Draft extraction model failed, retrying with fallback:", primaryError);
-      response = await client.chat.completions.create({
-        model: config.fptLegalModel,
-        messages,
-        tools: DRAFT_TOOLS,
-        tool_choice: { type: "function", function: { name: "extract_draft_case" } },
-      });
-    }
+    const response = await createAiCompletion("extraction", {
+      messages,
+      tools: DRAFT_TOOLS,
+      tool_choice: { type: "function", function: { name: "extract_draft_case" } },
+    });
 
     const toolCall = response.choices[0].message.tool_calls?.[0];
     if (toolCall && toolCall.type === "function" && toolCall.function.name === "extract_draft_case") {
