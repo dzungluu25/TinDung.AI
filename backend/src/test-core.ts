@@ -1,10 +1,9 @@
 import assert from "node:assert/strict";
-import { RETAIL_CASES } from "./services/data/retail-case-data";
+import { RetailCase } from "./types/case.types";
 import { calculateCurrentMonthlyDebt, calculateIncomeAfterHaircut } from "./services/calculators/dti.calculator";
 import { evaluateCreditRules } from "./services/rules/credit-rule-engine";
 import { evaluateAutoApprovalPolicy } from "./services/rules/auto-approval-policy.service";
 import { projectBusinessValue } from "./services/business/profitability-engine";
-import { routeDemoInput } from "./services/orchestration/input-router.service";
 import { buildAnswerTransparency, groundLegalFindings } from "./services/governance/citation-governance.service";
 import { DecisionEnvelope } from "./types/agent.types";
 import { decideNextAction } from "./services/orchestration/decision-matrix.service";
@@ -12,6 +11,51 @@ import { maskPiiPayload } from "./services/governance/pii-masking.service";
 import { AgentTrace } from "./types/trace.types";
 import { assessDecisionConfidence } from "./services/governance/decision-confidence.service";
 import { getKnowledgeGraphCatalog, validateKnowledgeGraphCatalog } from "./services/data/knowledge-graph-seed.service";
+
+// Local fixtures for deterministic rule-engine unit tests only — not the demo case
+// catalog (that no longer exists; real cases come from case-extraction.service.ts).
+const fastCaseFixture: RetailCase = {
+  caseId: "test-fast-clean",
+  customerId: "test-cust-1",
+  demographic: { name: "Test Fast", age: 30, maritalStatus: "single", cccd: "000000000001", phone: "0900000001", email: "fast@test.local" },
+  incomeSources: [{ type: "salary", amount: 40_000_000, evidence: "bank-statement" }],
+  currentDebts: [],
+  requestedLoan: { type: "mortgage", amount: 500_000_000, tenureYears: 15 },
+  property: { type: "apartment", value: 900_000_000, status: "completed", evidence: "title-deed" },
+  consent: { credit_check: true, tax_income_check: true, social_insurance_check: true, marketing: false },
+  insurancePreference: "declined",
+};
+
+const complexCaseFixture: RetailCase = {
+  caseId: "test-complex-main",
+  customerId: "test-cust-2",
+  demographic: { name: "Test Complex", age: 45, maritalStatus: "married", cccd: "000000000002", phone: "0900000002", email: "complex@test.local" },
+  incomeSources: [
+    { type: "salary", amount: 60_000_000, evidence: "bank-statement" },
+    { type: "freelance", amount: 20_000_000, evidence: "service-contract" },
+    { type: "rental", amount: 15_000_000, evidence: "lease-agreement" },
+  ],
+  currentDebts: [
+    { type: "auto", monthlyOwed: 8_000_000, outstandingAmount: 300_000_000, evidence: "loan-contract" },
+    { type: "credit_card", monthlyOwed: 2_500_000, outstandingAmount: 50_000_000, limit: 100_000_000, evidence: "cc-statement" },
+  ],
+  requestedLoan: { type: "mortgage", amount: 2_000_000_000, tenureYears: 20 },
+  property: { type: "apartment", value: 2_800_000_000, status: "future_project", projectCode: "TEST-PROJECT-1", evidence: "sale-contract" },
+  consent: { credit_check: true, tax_income_check: true, social_insurance_check: true, marketing: false },
+  insurancePreference: "declined",
+};
+
+const dtiFailCaseFixture: RetailCase = {
+  caseId: "test-dti-fail",
+  customerId: "test-cust-3",
+  demographic: { name: "Test DTI Fail", age: 50, maritalStatus: "single", cccd: "000000000003", phone: "0900000003", email: "dtifail@test.local" },
+  incomeSources: [{ type: "salary", amount: 15_000_000, evidence: "bank-statement" }],
+  currentDebts: [{ type: "credit_card", monthlyOwed: 8_000_000, outstandingAmount: 150_000_000, limit: 150_000_000, evidence: "cc-statement" }],
+  requestedLoan: { type: "mortgage", amount: 1_500_000_000, tenureYears: 20 },
+  property: { type: "apartment", value: 1_800_000_000, status: "completed", evidence: "title-deed" },
+  consent: { credit_check: true, tax_income_check: true, social_insurance_check: true, marketing: false },
+  insurancePreference: "declined",
+};
 
 validateKnowledgeGraphCatalog();
 const knowledgeGraphCatalog = getKnowledgeGraphCatalog();
@@ -35,25 +79,21 @@ assert.equal(
   "Personal CIC data must not be bulk-ingested into the legal graph"
 );
 
-const assess = (caseId: string) => {
-  const retailCase = RETAIL_CASES[caseId];
-  return evaluateCreditRules(
-    `test-${caseId}`,
+const assess = (retailCase: RetailCase) =>
+  evaluateCreditRules(
+    `test-${retailCase.caseId}`,
     calculateIncomeAfterHaircut(retailCase.incomeSources),
     calculateCurrentMonthlyDebt(retailCase.currentDebts),
     retailCase
   );
-};
 
-const fastCase = RETAIL_CASES["case-fast-clean"];
-const fastAssessment = assess("case-fast-clean");
+const fastAssessment = assess(fastCaseFixture);
 assert.equal(fastAssessment.creditDecision, "PASS", "Clean fixture must pass deterministic credit rules");
-assert.equal(evaluateAutoApprovalPolicy(fastCase, fastAssessment).eligible, true, "Clean fixture must satisfy every auto-policy gate");
+assert.equal(evaluateAutoApprovalPolicy(fastCaseFixture, fastAssessment).eligible, true, "Clean fixture must satisfy every auto-policy gate");
 
-const complexCase = RETAIL_CASES["case-complex-main"];
-assert.equal(evaluateAutoApprovalPolicy(complexCase, assess("case-complex-main")).eligible, false, "Complex fixture must never enter auto approval");
+assert.equal(evaluateAutoApprovalPolicy(complexCaseFixture, assess(complexCaseFixture)).eligible, false, "Complex fixture must never enter auto approval");
 
-const dtiFail = assess("case-dti-fail");
+const dtiFail = assess(dtiFailCaseFixture);
 assert.equal(dtiFail.creditDecision, "FAIL", "Unaffordable fixture must fail after restructure search");
 
 const value = projectBusinessValue({
@@ -67,27 +107,27 @@ assert.equal(value.profitable, true, "Representative clean loan should clear the
 assert.ok(value.riskAdjustedProfit > 0);
 assert.ok(value.estimatedProcessingCostSavedVnd > 0);
 
-assert.deepEqual(routeDemoInput("hello world!!!"), {
-  ok: false,
-  code: "INVALID_INPUT",
-  message: "Yêu cầu quá ngắn, quá dài hoặc không chứa đủ thông tin để thẩm định.",
-});
+const testRouting = async () => {
+  const tooShort = await routeOrExtractInput("hello world!!!");
+  assert.deepEqual(tooShort, {
+    ok: false,
+    code: "INVALID_INPUT",
+    message: "Yêu cầu quá ngắn, quá dài hoặc không chứa đủ thông tin để thẩm định.",
+  });
 
-const unsupported = routeDemoInput("Thẩm định khoản vay kinh doanh 987 triệu cho một khách hàng hoàn toàn mới.");
-assert.equal(unsupported.ok, false, "Unknown cases must not fall back to a populated fixture");
-if (!unsupported.ok) assert.equal(unsupported.code, "UNSUPPORTED_CASE");
+  const offTopic = await routeOrExtractInput("Hôm nay thời tiết Hà Nội thế nào, cho tôi hỏi vài câu ngoài lề nhé.");
+  assert.equal(offTopic.ok, false, "Off-topic content must not be routed into the credit pipeline");
+  if (!offTopic.ok) assert.equal(offTopic.code, "INVALID_INPUT");
 
-const known = routeDemoInput("Thẩm định hồ sơ vay mua căn hộ của chị Bình, khoản vay 500 triệu VND.");
-assert.equal(known.ok, true);
-if (known.ok) assert.equal(known.caseId, "case-fast-clean");
+  const unknownExplicitCase = await routeOrExtractInput("Thẩm định hồ sơ tín dụng theo case đã chọn.", "case-does-not-exist");
+  assert.equal(unknownExplicitCase.ok, false, "An explicit caseId that isn't in the DB must be rejected, not silently substituted");
+  if (!unknownExplicitCase.ok) assert.equal(unknownExplicitCase.code, "UNSUPPORTED_CASE");
 
-const explicit = routeDemoInput("Thẩm định hồ sơ tín dụng theo case đã chọn.", "case-missing-consent");
-assert.equal(explicit.ok, true);
-if (explicit.ok) assert.equal(explicit.caseId, "case-missing-consent");
-
-const invalidWithExplicitCase = routeDemoInput("hello world!!!", "case-fast-clean");
-assert.equal(invalidWithExplicitCase.ok, false, "A valid caseId must never bypass prompt validation");
-if (!invalidWithExplicitCase.ok) assert.equal(invalidWithExplicitCase.code, "INVALID_INPUT");
+  const invalidWithExplicitCase = await routeOrExtractInput("hello world!!!", "case-does-not-exist");
+  assert.equal(invalidWithExplicitCase.ok, false, "A caseId must never bypass prompt validation");
+  if (!invalidWithExplicitCase.ok) assert.equal(invalidWithExplicitCase.code, "INVALID_INPUT");
+};
+await testRouting();
 
 const untrustedLegalFinding: DecisionEnvelope = {
   decisionId: "dec-legal-test-1",

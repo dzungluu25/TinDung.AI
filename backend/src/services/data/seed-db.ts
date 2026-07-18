@@ -87,12 +87,48 @@ export const seedDatabases = async () => {
     try {
       // The versioned graph catalog is merged instead of clearing Neo4j on every boot.
       // This preserves externally curated nodes while keeping application-owned nodes
+<<<<<<< HEAD
       // and relationships idempotently up to date. Collateral Project nodes are not
       // seeded here — they must be registered from real project guarantee data as
       // loan applications reference them (see policy-rag.service.ts queryProjectGuarantee).
       await seedLegalKnowledgeGraph(session);
 
       console.log("Neo4j: Seeded versioned documents, clauses, policy rules and gates successfully.");
+=======
+      // and relationships idempotently up to date.
+      await seedLegalKnowledgeGraph(session);
+
+      // Create Collateral Projects
+      await session.run(`
+        MERGE (p1:Project {projectCode: "VIN-OCEANPARK-3"})
+        SET p1.name = "Vinhomes Ocean Park 3",
+            p1.developer = "Vingroup",
+            p1.isGuaranteedBySHB = true,
+            p1.guaranteeContractNo = "SHB-VAP-2025-008",
+            p1.evidenceSource = "PROJECT_GUARANTEE_REGISTRY",
+            p1.verificationStatus = "DEMO_ONLY",
+            p1.lastVerifiedAt = "2026-07-18"
+        MERGE (p2:Project {projectCode: "GALAXY-DIRTY-PROJECT"})
+        SET p2.name = "Galaxy Complex",
+            p2.developer = "Galaxy Group",
+            p2.isGuaranteedBySHB = false,
+            p2.guaranteeContractNo = "",
+            p2.evidenceSource = "PROJECT_GUARANTEE_REGISTRY",
+            p2.verificationStatus = "DEMO_ONLY",
+            p2.lastVerifiedAt = "2026-07-18"
+
+        WITH p1, p2
+        MATCH (c3:Clause {clauseId: "Clause-Future-Property"})
+        MATCH (c6:Clause {clauseId: "Clause-LTV-Limit"})
+
+        MERGE (p1)-[:GOVERNED_BY]->(c3)
+        MERGE (p2)-[:GOVERNED_BY]->(c3)
+        MERGE (p1)-[:GOVERNED_BY]->(c6)
+        MERGE (p2)-[:GOVERNED_BY]->(c6)
+      `);
+
+      console.log("Neo4j: Seeded versioned documents, clauses, policy rules, gates and property evidence successfully.");
+>>>>>>> bd85b9d454800c978eddaf7d70e3f23ab1d22ad9
     } finally {
       await session.close();
     }

@@ -1,9 +1,12 @@
 import { executeOrchestration } from "./services/orchestration/planner.service";
+import { OrchestrationInputError } from "./services/orchestration/input-router.service";
 
 interface TestCase {
   name: string;
   prompt: string;
   expectedPattern: string;
+  // When true, a thrown OrchestrationInputError (not a normal response) is the expected outcome.
+  expectThrow?: boolean;
 }
 
 // Every prompt below carries a full, self-contained data set (demographic, income,
@@ -41,7 +44,8 @@ const TEST_CASES: TestCase[] = [
   {
     name: "Case 4: Thiếu thông tin — hệ thống phải hỏi lại thay vì suy diễn",
     prompt: "Thẩm định giúp tôi hồ sơ vay mua nhà của anh Tuấn.",
-    expectedPattern: "chưa đủ thông tin"
+    expectedPattern: "chưa đủ thông tin",
+    expectThrow: true
   }
 ];
 
@@ -64,6 +68,12 @@ async function runTests() {
       console.log(`💬 Kết quả nhận được (finalAnswer):`);
       console.log(`   "${response.finalAnswer}"`);
 
+      if (tc.expectThrow) {
+        console.log(`❌ TRẠNG THÁI: FAILED (mong đợi lỗi OrchestrationInputError nhưng nhận được response bình thường)`);
+        failedCount++;
+        continue;
+      }
+
       const passed = response.finalAnswer.includes(tc.expectedPattern);
       if (passed) {
         console.log("✅ TRẠNG THÁI: PASSED");
@@ -73,8 +83,13 @@ async function runTests() {
         failedCount++;
       }
     } catch (error) {
-      console.log(`❌ TRẠNG THÁI: FAILED với lỗi:`, error);
-      failedCount++;
+      if (tc.expectThrow && error instanceof OrchestrationInputError && error.message.includes(tc.expectedPattern)) {
+        console.log(`✅ TRẠNG THÁI: PASSED (lỗi mong đợi: ${error.message})`);
+        passedCount++;
+      } else {
+        console.log(`❌ TRẠNG THÁI: FAILED với lỗi:`, error);
+        failedCount++;
+      }
     }
   }
 
