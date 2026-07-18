@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { verifyAccessToken, UserRole } from "../config/auth";
 
 export interface AuthenticatedRequest extends Request {
-  user?: { sub: string; role: UserRole };
+  user?: { sub: string; role: UserRole; tenantId: string };
 }
 
 /**

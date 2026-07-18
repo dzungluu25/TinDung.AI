@@ -26,7 +26,8 @@ export const login = async (req: Request, res: Response) => {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    const accessToken = signAccessToken({ sub: user.username, role: user.role });
+    const tenantId = "bank-default";
+    const accessToken = signAccessToken({ sub: user.username, role: user.role, tenantId });
     await recordAuditEvent(
       AUTH_RUN_ID,
       user.username,
@@ -40,6 +41,7 @@ export const login = async (req: Request, res: Response) => {
       accessToken,
       role: user.role,
       expiresIn: ACCESS_TOKEN_TTL_SECONDS,
+      tenantId,
     });
   } catch (error) {
     console.error("Login error:", error);
@@ -59,7 +61,8 @@ export const createDemoSession = async (_req: Request, res: Response) => {
 
   const username = "demo.officer";
   const role = "CREDIT_OFFICER" as const;
-  const accessToken = signAccessToken({ sub: username, role });
+  const tenantId = "bank-default";
+  const accessToken = signAccessToken({ sub: username, role, tenantId });
 
   await recordAuditEvent(
     AUTH_RUN_ID,
@@ -70,5 +73,5 @@ export const createDemoSession = async (_req: Request, res: Response) => {
     "Khởi tạo phiên truy cập giới hạn cho giao diện hackathon demo."
   );
 
-  return res.status(200).json({ accessToken, role, expiresIn: ACCESS_TOKEN_TTL_SECONDS });
+  return res.status(200).json({ accessToken, role, tenantId, expiresIn: ACCESS_TOKEN_TTL_SECONDS });
 };

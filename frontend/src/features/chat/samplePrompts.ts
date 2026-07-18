@@ -1,5 +1,5 @@
-// Each sample contains enough explicit signals for the backend's guarded demo router.
-// Unsupported free text is rejected rather than silently mapped to a populated fixture.
+// UI examples only. The backend never maps these strings to pre-populated cases; a
+// complete request is extracted by the model and persisted as a new case.
 export const SAMPLE_PROMPTS = [
   { label: "Hồ sơ sạch (Fast Lane)", prompt: "Thẩm định hồ sơ vay mua căn hộ của chị Bình, khoản vay 500 triệu VND." },
   { label: "Hồ sơ phức tạp (Cần tái cấu trúc)", prompt: "Thẩm định hồ sơ vay mua nhà dự án của anh Hùng, khoản vay 2.8 tỷ VND." },

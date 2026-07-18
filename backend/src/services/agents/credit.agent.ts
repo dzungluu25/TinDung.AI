@@ -5,11 +5,13 @@ import { loadRetailCase } from "../data/retail-case-loader";
 
 export const runCreditAgent = async (
   runId: string,
-  caseId: string
+  caseId: string,
+  tenantId = "bank-default",
+  maximumDtiPercent?:number
 ): Promise<AgentTrace> => {
   const startedAt = new Date().toISOString();
 
-  const retailCase = await loadRetailCase(caseId);
+  const retailCase = await loadRetailCase(caseId, tenantId);
 
   if (!retailCase) {
     return {
@@ -28,7 +30,7 @@ export const runCreditAgent = async (
   const validIncome = calculateIncomeAfterHaircut(retailCase.incomeSources);
   const currentMonthlyDebt = calculateCurrentMonthlyDebt(retailCase.currentDebts);
 
-  const assessment = evaluateCreditRules(runId, validIncome, currentMonthlyDebt, retailCase);
+  const assessment = evaluateCreditRules(runId, validIncome, currentMonthlyDebt, retailCase,{maximumDtiPercent});
 
   const summary = `Đã phân tích báo cáo tài chính rủi ro. Thu nhập hợp lệ sau giảm trừ (Haircut): ${validIncome.toLocaleString()} VND. Tổng nợ phải trả hàng tháng hiện tại: ${currentMonthlyDebt.toLocaleString()} VND. Trạng thái phân vùng thẩm định: [${assessment.creditDecision}].`;
 

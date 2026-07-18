@@ -273,8 +273,7 @@ const validateExtractedCase = (value: unknown): Omit<RetailCase, "caseId" | "cus
 };
 
 /**
- * Extracts a structured RetailCase from a free-text credit request that didn't match
- * any of the fixed demo fixtures. The model must ground every field in the user's own
+ * Extracts a structured RetailCase from a free-text credit request. The model must ground every field in the user's own
  * text (system prompt forbids guessing) and validateExtractedCase re-checks the shape
  * server-side — the model's output is never trusted directly, same as legal-reasoning.
  */
@@ -282,7 +281,7 @@ const EXTRACTION_UNAVAILABLE_RESULT: CaseExtractionResult = {
   ok: false,
   missingFields: ["toàn bộ hồ sơ"],
   questions: [
-    "Hệ thống trích xuất hồ sơ tạm thời không xử lý được yêu cầu này. Vui lòng cung cấp đầy đủ thông tin khách hàng, thu nhập, khoản vay đề xuất và tài sản thế chấp, hoặc chọn một hồ sơ mẫu có sẵn.",
+    "Hệ thống trích xuất hồ sơ tạm thời không xử lý được yêu cầu này. Vui lòng cung cấp đầy đủ thông tin khách hàng, thu nhập, khoản vay đề xuất và tài sản thế chấp.",
   ],
 };
 

@@ -1,7 +1,13 @@
 {
-  "catalogId": "demo-input-routing",
-  "version": "2026.07.18",
-  "injectionCaseId": "case-prompt-injection",
-  "injectionSignals": ["ignore all previous instructions", "system instruction", "override check", "prompt injection", "tan cong", "hacker"],
-  "creditIntentSignals": ["tham dinh", "ho so", "tin dung", "khoan vay", "vay", "the chap", "phe duyet"]
+  "catalogId": "dynamic-input-security",
+  "version": "2026.07.18.1",
+  "injectionSignals": [
+    "ignore all previous instructions",
+    "disregard previous instructions",
+    "override security check",
+    "override policy check",
+    "bypass safety rules",
+    "bo qua moi chi dan truoc",
+    "ghi de kiem tra bao mat"
+  ]
 }

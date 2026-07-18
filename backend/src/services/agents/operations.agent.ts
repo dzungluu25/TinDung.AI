@@ -5,19 +5,21 @@ import { verifyAccessToken } from "../../config/auth";
 import { recordAuditEvent } from "../governance/audit-log.service";
 import { ApprovedLoanTerms, ApprovalMode } from "../../types/product.types";
 import { randomUUID } from "crypto";
+import { enforcePolicyGate, executeSaga } from "../platform/action-saga.service";
+import { ActionStepResult, CompensationResult } from "../../types/platform.types";
 
 /**
  * Verifies the approval token is a genuine, unexpired JWT signed for a CREDIT_APPROVER —
  * replaces the previous static-string comparison ("SHB-ADMIN-token-99"), which allowed
  * anyone who read the frontend source to forge a valid approval.
  */
-const verifyApprovalToken = (approvalToken?: string): { approved: boolean; approverActor?: string } => {
+const verifyApprovalToken = (approvalToken: string | undefined, tenantId: string): { approved: boolean; approverActor?: string } => {
   if (!approvalToken) {
     return { approved: false };
   }
   try {
     const payload = verifyAccessToken(approvalToken);
-    if (payload.role !== "CREDIT_APPROVER") {
+    if (payload.role !== "CREDIT_APPROVER" || payload.tenantId !== tenantId) {
       return { approved: false };
     }
     return { approved: true, approverActor: payload.sub };
@@ -33,11 +35,16 @@ export const runOperationsAgent = async (
   conditions: ConditionPrecedent[],
   approvalToken?: string,
   approvalMode: ApprovalMode = "HYBRID_APPROVAL",
-  approvedTerms?: ApprovedLoanTerms
-): Promise<{ trace: AgentTrace; ticketId?: string }> => {
+  approvedTerms?: ApprovedLoanTerms,
+  tenantId = "bank-default",
+  persistedApprovalGranted = false,
+  persistedApproverActor?: string,
+  workflowAllowsAction = false,
+  allowedActionTools: string[] = []
+): Promise<{ trace: AgentTrace; ticketId?: string; actionResults: ActionStepResult[]; compensationResults: CompensationResult[]; manualInterventionRequired: boolean }> => {
   const startedAt = new Date().toISOString();
 
-  const retailCase = await loadRetailCase(caseId);
+  const retailCase = await loadRetailCase(caseId, tenantId);
 
   if (!retailCase) {
     return {
@@ -51,7 +58,7 @@ export const runOperationsAgent = async (
         toolCalls: [],
         startedAt,
         completedAt: new Date().toISOString()
-      }
+      },actionResults:[],compensationResults:[],manualInterventionRequired:false
     };
   }
 
@@ -59,6 +66,9 @@ export const runOperationsAgent = async (
   let summary = "";
   let ticketId: string | undefined;
   let status: "completed" | "pending" | "failed" = "completed";
+  let actionResults:ActionStepResult[]=[];
+  let compensationResults:CompensationResult[]=[];
+  let manualInterventionRequired=false;
 
   // Check decision
   if (finalDecision === "REJECTED") {
@@ -91,7 +101,9 @@ export const runOperationsAgent = async (
   } else if (finalDecision === "CONDITIONAL_PASS" || finalDecision === "PASS") {
     // Check Human-in-the-Loop Token Gate: the approval token must be a genuine JWT
     // signed for a CREDIT_APPROVER identity, not a shared static secret.
-    const { approved: hasValidToken, approverActor } = verifyApprovalToken(approvalToken);
+    const tokenApproval = verifyApprovalToken(approvalToken, tenantId);
+    const hasValidToken = persistedApprovalGranted || tokenApproval.approved;
+    const approverActor = persistedApproverActor ?? tokenApproval.approverActor;
 
     if (!hasValidToken) {
       status = "pending";
@@ -150,6 +162,29 @@ export const runOperationsAgent = async (
     });
   }
 
+  if(ticketId&&status==="completed"){
+    const requiredTools=["reserveCreditLimit","createLoanCase","createRmTask","updateCrmStatus"];
+    enforcePolicyGate({tenantId,runTenantId:tenantId,workflowAllowsAction,toolAllowed:requiredTools.every(tool=>allowedActionTools.includes(tool)),approvalRequired:approvalMode!=="AUTO_APPROVAL",approvalGranted:approvalMode==="AUTO_APPROVAL"||persistedApprovalGranted||verifyApprovalToken(approvalToken,tenantId).approved,idempotencyKey:`${tenantId}:${runId}:loan-activation`});
+    const saga=await executeSaga(tenantId,runId,[
+      {id:"reserveCreditLimit",maxAttempts:2,execute:async()=>({reservationId:`RES-${runId}`,status:"RESERVED"}),compensate:async()=>({reservationId:`RES-${runId}`,status:"RELEASED"})},
+      {id:"createLoanCase",maxAttempts:2,execute:async()=>({facilityId:ticketId!,status:finalDecision==="PASS"||finalDecision==="FAST_PASS"?"ACTIVE":"PENDING_CONDITIONS"}),compensate:async()=>({facilityId:ticketId!,status:"CANCELLED"})},
+      {id:"createRmTask",execute:async()=>({taskId:`RM-${runId}`,status:"CREATED"}),compensate:async()=>({taskId:`RM-${runId}`,status:"CANCELLED"})},
+      {id:"updateCrmStatus",execute:async()=>({caseId,status:"APPROVED"}),compensate:async()=>({caseId,status:"REVIEW_REQUIRED"})},
+    ]);
+    actionResults=saga.actions; compensationResults=saga.compensations; manualInterventionRequired=saga.manualInterventionRequired;
+    for(const result of actionResults) toolCalls.push({toolName:result.stepId,input:{idempotencyKey:result.idempotencyKey},output:{status:result.status,attempts:result.attempts,...result.output,error:result.error},status:result.status==="completed"?"success":"failed"});
+    for(const result of compensationResults) toolCalls.push({toolName:`compensate:${result.stepId}`,input:{runId},output:{status:result.status,...result.output,error:result.error},status:result.status==="completed"?"success":"failed"});
+    if(actionResults.some(result=>result.status==="failed")){status="failed";ticketId=undefined;summary=manualInterventionRequired?"Saga thất bại và có compensation không thành công; bắt buộc xử lý thủ công.":"Saga thất bại; các action đã hoàn tác thành công.";}
+  }
+  if(!ticketId&&status==="completed"&&(finalDecision==="REJECTED"||finalDecision==="HUMAN_ESCALATION")){
+    const stepId=finalDecision==="REJECTED"?"sendRejectionNotification":"escalateCreditCommittee";
+    enforcePolicyGate({tenantId,runTenantId:tenantId,workflowAllowsAction,toolAllowed:allowedActionTools.includes(stepId),approvalRequired:false,approvalGranted:false,idempotencyKey:`${tenantId}:${runId}:${stepId}`});
+    const saga=await executeSaga(tenantId,runId,[{id:stepId,execute:async()=>finalDecision==="REJECTED"?{notificationSent:true,channel:"email"}:{escalationStatus:"QUEUED",queueName:"COMMITTEE_LEVEL_2"},compensate:async()=>finalDecision==="REJECTED"?{notificationCancelled:true}:{escalationStatus:"CANCELLED"}}]);
+    actionResults=saga.actions;compensationResults=saga.compensations;manualInterventionRequired=saga.manualInterventionRequired;
+    for(const result of actionResults)toolCalls.push({toolName:result.stepId,input:{idempotencyKey:result.idempotencyKey},output:{status:result.status,...result.output,error:result.error},status:result.status==="completed"?"success":"failed"});
+    if(actionResults.some(result=>result.status==="failed")){status="failed";summary=manualInterventionRequired?"Action thất bại và cần xử lý thủ công.":"Action thất bại và đã được hoàn tác.";}
+  }
+
   return {
     trace: {
       id: `trace-ops-${Date.now()}`,
@@ -162,6 +197,6 @@ export const runOperationsAgent = async (
       startedAt,
       completedAt: new Date().toISOString()
     },
-    ticketId
+    ticketId,actionResults,compensationResults,manualInterventionRequired
   };
 };

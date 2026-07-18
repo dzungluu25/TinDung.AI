@@ -8,12 +8,12 @@ export interface AutoApprovalResult {
 }
 
 /** Hard gate for the low-risk lane. No LLM output can override these checks. */
-export const evaluateAutoApprovalPolicy = (retailCase: RetailCase, credit: CreditAssessmentResult, hasProductConflict = false): AutoApprovalResult => {
+export const evaluateAutoApprovalPolicy = (retailCase: RetailCase, credit: CreditAssessmentResult, hasProductConflict = false, maximumDtiPercent = decisionPolicy.autoApproval.maximumDtiPercent): AutoApprovalResult => {
   const policy = decisionPolicy.autoApproval;
   const codes = policy.reasonCodes;
   const checks: Array<[boolean, string]> = [
     [retailCase.requestedLoan.amount <= policy.maximumLoanAmountVnd, codes.amount],
-    [credit.originalScenario.dtiStress <= policy.maximumDtiPercent, codes.dti],
+    [credit.originalScenario.dtiStress <= maximumDtiPercent, codes.dti],
     [credit.originalScenario.ltv <= policy.maximumLtvPercent, codes.ltv],
     [credit.creditDecision === "PASS", codes.credit],
     [retailCase.property.status === policy.requiredPropertyStatus, codes.collateral],

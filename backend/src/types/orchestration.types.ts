@@ -1,6 +1,7 @@
 import { AgentTrace, AuditEvent, CostBudgetStatus } from "./trace.types";
 import { ConditionPrecedent } from "./agent.types";
 import { ApprovedLoanTerms, ApprovalMode, BusinessValueProjection, DecisionConfidence } from "./product.types";
+import { ActionStepResult, ApprovalRecord, CompensationResult, ValidationIssue } from "./platform.types";
 
 export type CitationSourceType = "LAW" | "DECREE" | "CIRCULAR" | "INTERNAL_POLICY" | "STANDARD";
 export type CitationVerificationStatus = "VERIFIED_OFFICIAL" | "INTERNAL_REVIEW_REQUIRED";
@@ -46,6 +47,10 @@ export interface OrchestrationRequest {
 export interface OrchestrationResponse {
   mode?: "CREDIT_APPRAISAL";
   runId: string;
+  tenantId?: string;
+  workflowId?: string;
+  workflowVersion?: string;
+  configVersion?: string;
   finalAnswer: string;
   /**
    * Cross-agent narrative synthesizing WHY the final decision landed where it did —
@@ -58,6 +63,10 @@ export interface OrchestrationResponse {
   reasoning?: string;
   traces: AgentTrace[];
   approvalTicketId?: string;
+  pendingApproval?: ApprovalRecord;
+  actionResults?: ActionStepResult[];
+  compensationResults?: CompensationResult[];
+  manualInterventionRequired?: boolean;
   conditions?: ConditionPrecedent[];
   budgetStatus?: CostBudgetStatus;
   auditEvents?: AuditEvent[];
@@ -90,6 +99,12 @@ export interface AdvisoryResponse {
  * is next in the known pipeline order rather than the backend faking a separate start signal.
  */
 export type OrchestrationStreamEvent =
+  | { type: "node_lifecycle"; runId: string; node: string; status: "started" | "completed" | "failed" | "paused"; timestamp: string }
+  | { type: "validation"; runId: string; issues: ValidationIssue[] }
+  | { type: "approval"; runId: string; approval: ApprovalRecord }
+  | { type: "action"; runId: string; result: ActionStepResult }
+  | { type: "compensation"; runId: string; result: CompensationResult }
+  | { type: "terminal"; runId: string; status: "completed" | "rejected" | "failed" | "manual_intervention_required" }
   | { type: "node_update"; node: AgentTrace["agent"]; trace: AgentTrace; riskTier?: "FAST" | "COMPLEX" }
   | { type: "final"; response: OrchestrationResponse }
   | { type: "advisory_final"; response: AdvisoryResponse }

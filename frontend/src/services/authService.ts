@@ -4,6 +4,7 @@ import type { UserRole } from "../types/api";
 export interface LoginResponse {
   accessToken: string;
   role: UserRole;
+  tenantId: string;
   expiresIn: number;
 }
 

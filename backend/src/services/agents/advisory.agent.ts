@@ -21,7 +21,7 @@ const OUT_OF_DOMAIN_ANSWER =
 
 /**
  * Handles the two intents the classifier routes away from the credit pipeline. Never
- * touches RETAIL_CASES or orchestrationGraph — this is a single direct LLM answer (or a
+ * touches case data or orchestrationGraph — this is a single direct LLM answer (or a
  * canned redirect for out-of-domain input), not a credit decision, so none of the
  * decision-matrix/confidence/audit machinery built for loan outcomes applies here.
  */

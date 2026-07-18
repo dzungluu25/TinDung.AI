@@ -48,9 +48,9 @@ export interface PlanningResult {
  * separate deployment. mandatoryAgentsByLane enforcement stays entirely in riskNode; this
  * phase can only ADD extra tool-call context, never skip or replace a mandatory agent.
  */
-export const runPlanningPhase = async (runId: string, caseId: string, riskTier: "FAST" | "COMPLEX"): Promise<PlanningResult> => {
+export const runPlanningPhase = async (runId: string, caseId: string, riskTier: "FAST" | "COMPLEX", tenantId = "bank-default"): Promise<PlanningResult> => {
   const startedAt = new Date().toISOString();
-  const server = buildCreditToolServer();
+  const server = buildCreditToolServer(tenantId);
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   const mcpClient = new Client({ name: "vaic-planner", version: "1.0.0" });
 

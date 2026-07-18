@@ -23,11 +23,12 @@ export const runLegalAgent = async (
   caseId: string,
   prompt: string,
   productFindings: any[], // To retrieve product pricing offer
-  creditFindings: any[]   // To retrieve credit assessment details
+  creditFindings: any[],   // To retrieve credit assessment details
+  tenantId = "bank-default"
 ): Promise<AgentTrace> => {
   const startedAt = new Date().toISOString();
 
-  const retailCase = await loadRetailCase(caseId);
+  const retailCase = await loadRetailCase(caseId, tenantId);
 
   if (!retailCase) {
     return {

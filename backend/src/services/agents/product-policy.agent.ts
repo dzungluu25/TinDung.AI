@@ -6,11 +6,12 @@ import { productCatalog } from "../../config/policy";
 export const runProductPolicyAgent = async (
   runId: string,
   caseId: string,
-  isReprice: boolean = false
+  isReprice: boolean = false,
+  tenantId = "bank-default"
 ): Promise<AgentTrace> => {
   const startedAt = new Date().toISOString();
 
-  const retailCase = await loadRetailCase(caseId);
+  const retailCase = await loadRetailCase(caseId, tenantId);
 
   if (!retailCase) {
     return {

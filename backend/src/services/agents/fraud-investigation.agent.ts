@@ -80,9 +80,9 @@ const runFraudChecks = (retailCase: RetailCase): FraudCheckOutcome[] => {
   return checks;
 };
 
-export const runFraudInvestigationAgent = async (runId: string, caseId: string): Promise<AgentTrace> => {
+export const runFraudInvestigationAgent = async (runId: string, caseId: string, tenantId = "bank-default"): Promise<AgentTrace> => {
   const startedAt = new Date().toISOString();
-  const retailCase = await loadRetailCase(caseId);
+  const retailCase = await loadRetailCase(caseId, tenantId);
 
   if (!retailCase) {
     return {

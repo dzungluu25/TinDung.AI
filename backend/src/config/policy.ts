@@ -43,7 +43,7 @@ export interface DecisionPolicy {
 }
 
 export interface RoutingCatalog {
-  catalogId: string; version: string; injectionCaseId: string; injectionSignals: string[]; creditIntentSignals: string[];
+  catalogId: string; version: string; injectionSignals: string[];
 }
 
 export interface ProductCatalog {

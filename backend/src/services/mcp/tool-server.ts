@@ -18,7 +18,7 @@ const jsonContent = (value: unknown, isError = false) => ({
  * MCP entirely. Every tool is a thin adapter: no new business logic, just serialization
  * around a service that already exists and is already exercised by the fixed pipeline.
  */
-export const buildCreditToolServer = (): McpServer => {
+export const buildCreditToolServer = (tenantId = "bank-default"): McpServer => {
   const server = new McpServer({ name: "vaic-credit-tools", version: "1.0.0" });
 
   server.registerTool(
@@ -28,7 +28,7 @@ export const buildCreditToolServer = (): McpServer => {
       inputSchema: { caseId: z.string() },
     },
     async ({ caseId }) => {
-      const retailCase = await loadRetailCase(caseId);
+      const retailCase = await loadRetailCase(caseId, tenantId);
       return jsonContent(retailCase ?? { found: false }, !retailCase);
     }
   );
@@ -40,7 +40,7 @@ export const buildCreditToolServer = (): McpServer => {
       inputSchema: { caseId: z.string() },
     },
     async ({ caseId }) => {
-      const retailCase = await loadRetailCase(caseId);
+      const retailCase = await loadRetailCase(caseId, tenantId);
       if (!retailCase) return jsonContent({ found: false }, true);
       const result = evaluateCreditRules(
         `mcp-${caseId}`,
@@ -84,7 +84,7 @@ export const buildCreditToolServer = (): McpServer => {
       inputSchema: { caseId: z.string() },
     },
     async ({ caseId }) => {
-      const retailCase = await loadRetailCase(caseId);
+      const retailCase = await loadRetailCase(caseId, tenantId);
       if (!retailCase) return jsonContent({ found: false }, true);
       try {
         const result = await estimateCreditRisk(caseId, {

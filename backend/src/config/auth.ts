@@ -6,6 +6,7 @@ export type UserRole = "CREDIT_OFFICER" | "CREDIT_APPROVER";
 export interface AuthTokenPayload {
   sub: string;
   role: UserRole;
+  tenantId: string;
 }
 
 export const ACCESS_TOKEN_TTL_SECONDS = 15 * 60; // 15 minutes: short-lived, aligned with maker-checker session expectations
@@ -33,8 +34,8 @@ export const signAccessToken = (payload: AuthTokenPayload): string => {
 
 export const verifyAccessToken = (token: string): AuthTokenPayload => {
   const decoded = jwt.verify(token, getJwtSecret(), { issuer: "shb-vaic-auth" });
-  if (typeof decoded === "string" || !decoded.sub || !decoded.role) {
+  if (typeof decoded === "string" || !decoded.sub || !decoded.role || !decoded.tenantId) {
     throw new Error("Malformed auth token payload.");
   }
-  return { sub: decoded.sub as string, role: decoded.role as UserRole };
+  return { sub: decoded.sub as string, role: decoded.role as UserRole, tenantId: decoded.tenantId as string };
 };

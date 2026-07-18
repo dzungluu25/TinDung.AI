@@ -63,8 +63,8 @@ export const maskPiiPayload = (payload: any): any => {
         } else if (lowerKey === "name" || lowerKey === "fullname" || lowerKey === "customername") {
           masked[key] = maskName(value);
         } else {
-          // Check for prompt injections in generic text
-          masked[key] = value;
+          // Regex fallback is mandatory for free-form summaries, findings and errors.
+          masked[key] = maskPiiText(value);
         }
       } else {
         masked[key] = maskPiiPayload(value);
@@ -73,7 +73,7 @@ export const maskPiiPayload = (payload: any): any => {
     return masked;
   }
   
-  return payload;
+  return typeof payload === "string" ? maskPiiText(payload) : payload;
 };
 
 /**

@@ -15,7 +15,7 @@ export const orchestratePrompt = async (req: AuthenticatedRequest, res: Response
     // req.user is guaranteed by the requireAuth middleware mounted on this route.
     const requestedBy = req.user!.sub;
 
-    const result = await executeOrchestration(prompt, requestedBy, approvalToken, caseId);
+    const result = await executeOrchestration(prompt, requestedBy, approvalToken, caseId, req.user!.tenantId);
     return res.status(200).json(result);
   } catch (error) {
     if (error instanceof OrchestrationInputError) {
@@ -47,7 +47,7 @@ export const orchestratePromptStream = async (req: AuthenticatedRequest, res: Re
   };
 
   try {
-    await streamOrchestration(prompt, requestedBy, approvalToken, writeEvent, caseId);
+    await streamOrchestration(prompt, requestedBy, approvalToken, writeEvent, caseId, req.user!.tenantId);
   } catch (error) {
     if (error instanceof OrchestrationInputError) {
       writeEvent({ type: "error", message: error.message, code: error.code, questions: error.questions });
@@ -63,7 +63,7 @@ export const orchestratePromptStream = async (req: AuthenticatedRequest, res: Re
 export const getRunTraces = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { runId } = req.params;
-    const run = getOrchestrationRun(runId);
+    const run = await getOrchestrationRun(runId, req.user!.tenantId);
     
     if (!run) {
       return res.status(404).json({ error: "Run not found" });

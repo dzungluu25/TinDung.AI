@@ -3,7 +3,6 @@ import { Send } from "lucide-react";
 import { Card } from "../../components/Card";
 import { Button } from "../../components/Button";
 import { useAgentStream } from "../../hooks/useAgentStream";
-import { SAMPLE_PROMPTS } from "./samplePrompts";
 import styles from "./PromptComposer.module.css";
 
 export const PromptComposer = () => {
@@ -30,17 +29,7 @@ export const PromptComposer = () => {
         />
         <div className={styles.footer}>
           <div className={styles.chips}>
-            {SAMPLE_PROMPTS.map(sample => (
-              <button
-                key={sample.label}
-                type="button"
-                className={styles.chip}
-                disabled={isRunning}
-                onClick={() => setPrompt(sample.prompt)}
-              >
-                {sample.label}
-              </button>
-            ))}
+            {/* Demo buttons removed for production */}
           </div>
           <Button type="submit" isLoading={isRunning} disabled={!prompt.trim()}>
             <Send size={15} />

@@ -12,12 +12,9 @@ const startServer = async () => {
   assertDemoUsersConfigured();
   assertFptMarketplaceConfigured();
 
-  try {
-    // Run database table setup and Neo4j/Postgres seeds on boot
-    await seedDatabases();
-  } catch (err) {
-    console.error("Database seeding failed. Starting server anyway...", err);
-  }
+  // Core runtime is fail-closed: serving traffic without migrations, checkpoint tables,
+  // workflow/config bindings or governance catalogs would bypass production invariants.
+  await seedDatabases();
 
   app.listen(config.port, () => {
     console.log(`Backend server is running on port ${config.port} in ${config.nodeEnv} mode.`);

@@ -4,6 +4,7 @@ import { RetailCase } from "../../types/case.types";
 import { loadRetailCase } from "../data/retail-case-loader";
 import { maskPiiPayload } from "../governance/pii-masking.service";
 import { recordAuditEvent, getAuditEventsByRun } from "../governance/audit-log.service";
+import { screenSecurityInput } from "../governance/input-security.service";
 import { saveOrchestrationRun } from "./trace.service";
 import { orchestrationGraph, assembleTraces, OrchestrationState } from "./orchestration-graph";
 import { routeOrExtractInput, OrchestrationInputError } from "./input-router.service";
@@ -12,6 +13,12 @@ import { runAdvisoryAgent } from "../agents/advisory.agent";
 import { buildAnswerTransparency } from "../governance/citation-governance.service";
 import { buildReasoningNarrative } from "./reasoning-narrative.service";
 import { decisionPolicy } from "../../config/policy";
+import { randomUUID } from "crypto";
+import { resolveRuntimeBinding } from "../platform/runtime-binding.service";
+import { Command } from "@langchain/langgraph";
+import { getLatestApproval } from "../platform/approval.service";
+import { getTenantConfigVersion } from "../platform/tenant-config.service";
+import { pgQuery } from "../../config/pg";
 
 // Order matters: within the self-correction chunk, selfCorrectionTrace, productTrace and
 // legalTrace all change simultaneously (one graph step) — scanning selfCorrection before
@@ -29,6 +36,14 @@ const TRACE_KEYS = [
   "riskTrace",
   "opsTrace",
 ] as const;
+
+const attachInterruptMetadata=async(runId:string,state:OrchestrationState):Promise<OrchestrationState>=>{
+  const snapshot=await orchestrationGraph.getState({configurable:{thread_id:runId}});
+  const interrupts=(snapshot.tasks as Array<{interrupts?:unknown[]}>).flatMap(task=>task.interrupts??[]);
+  const normalized={...state} as OrchestrationState&{__interrupt__?:unknown[]};delete normalized.__interrupt__;
+  if(interrupts.length)normalized.__interrupt__=interrupts;
+  return normalized;
+};
 
 /** Shared response assembly for both the synchronous and streaming entry points. */
 const buildOrchestrationResponse = async (
@@ -49,6 +64,10 @@ const buildOrchestrationResponse = async (
     const response: OrchestrationResponse = {
       mode: "CREDIT_APPRAISAL",
       runId,
+      tenantId: finalState.tenantId,
+      workflowId: finalState.workflowId,
+      workflowVersion: finalState.workflowVersion,
+      configVersion: finalState.configVersion,
       finalAnswer: transparentAnswer.finalAnswer,
       reasoning:
         "Planner phát hiện tín hiệu chặn (BLOCKER) ngay tại bước phân loại đầu vào: nội dung yêu cầu chứa chỉ thị điều khiển hệ thống trái phép (prompt injection). Quyết định cuối cùng: chặn bảo mật (SECURITY_BLOCKED). Không agent nghiệp vụ nào được chạy tiếp.",
@@ -58,14 +77,32 @@ const buildOrchestrationResponse = async (
         missingConsentCalls: 0,
         highWritesBeforeApproval: 0,
         modelCallsUsed: finalState.modelCallsCount,
-        maxModelCalls: decisionPolicy.runtimeBudget.maximumModelCalls,
+        maxModelCalls: finalState.maximumModelCalls,
         estimatedCostUSD: decisionPolicy.runtimeBudget.securityBlockEstimatedCostUsd,
         replayMode: true
       },
       auditEvents: await getAuditEventsByRun(runId),
       transparency: transparentAnswer.transparency,
     };
-    saveOrchestrationRun(runId, response);
+    await saveOrchestrationRun(runId, response, {
+      caseId,
+      prompt: finalState.prompt,
+      status: "SECURITY_BLOCKED",
+      tenantId: finalState.tenantId,
+      workflowId: finalState.workflowId,
+      workflowVersion: finalState.workflowVersion,
+      configVersion: finalState.configVersion,
+    });
+    return response;
+  }
+
+  const graphInterrupts=(finalState as OrchestrationState & {__interrupt__?:unknown[]}).__interrupt__;
+  if(Array.isArray(graphInterrupts)&&graphInterrupts.length){
+    const approval=await getLatestApproval(finalState.tenantId,runId);
+    if(!approval) throw new Error("INTERRUPTED_WITHOUT_APPROVAL_RECORD");
+    const traces=maskPiiPayload(assembleTraces(finalState)) as AgentTrace[];
+    const response:OrchestrationResponse={mode:"CREDIT_APPRAISAL",runId,tenantId:finalState.tenantId,workflowId:finalState.workflowId,workflowVersion:finalState.workflowVersion,configVersion:finalState.configVersion,finalAnswer:"[CHỜ PHÊ DUYỆT] Workflow đã được checkpoint và tạm dừng trước thao tác nghiệp vụ.",reasoning:"Human approval gate đã tạm dừng LangGraph; chưa có action nào được thực hiện.",traces,approvalTicketId:approval.id,pendingApproval:approval,auditEvents:await getAuditEventsByRun(runId)};
+    await saveOrchestrationRun(runId,response,{caseId,prompt:finalState.prompt,status:"paused",tenantId:finalState.tenantId,workflowId:finalState.workflowId,workflowVersion:finalState.workflowVersion,configVersion:finalState.configVersion});
     return response;
   }
 
@@ -96,6 +133,7 @@ const buildOrchestrationResponse = async (
   } else {
     finalAnswer = `[TỪ CHỐI PHÊ DUYỆT] Hồ sơ bị từ chối tín dụng do không đáp ứng các chỉ tiêu rủi ro. Chi tiết: ${requiredFixes.join("; ")}`;
   }
+  if(finalState.manualInterventionRequired) finalAnswer="[DỪNG AN TOÀN] Action hoặc compensation thất bại; workflow đã khóa và yêu cầu can thiệp thủ công.";
 
   const transparentAnswer = buildAnswerTransparency(finalAnswer, rawTraces, finalDecision, approvalMode, requiredFixes);
 
@@ -108,7 +146,7 @@ const buildOrchestrationResponse = async (
     missingConsentCalls: missingConsent ? 1 : 0,
     highWritesBeforeApproval: highWritesBeforeApproval ? 1 : 0,
     modelCallsUsed: finalState.modelCallsCount,
-    maxModelCalls: decisionPolicy.runtimeBudget.maximumModelCalls,
+    maxModelCalls: finalState.maximumModelCalls,
     estimatedCostUSD: Number((finalState.modelCallsCount * decisionPolicy.runtimeBudget.estimatedCostPerModelCallUsd).toFixed(4)),
     replayMode: true
   };
@@ -116,10 +154,17 @@ const buildOrchestrationResponse = async (
   const response: OrchestrationResponse = {
     mode: "CREDIT_APPRAISAL",
     runId,
+    tenantId: finalState.tenantId,
+    workflowId: finalState.workflowId,
+    workflowVersion: finalState.workflowVersion,
+    configVersion: finalState.configVersion,
     finalAnswer: transparentAnswer.finalAnswer,
     reasoning: buildReasoningNarrative(maskedTraces as AgentTrace[], finalDecision, requiredFixes),
     traces: maskedTraces,
     approvalTicketId: ticketId,
+    actionResults:finalState.actionResults,
+    compensationResults:finalState.compensationResults,
+    manualInterventionRequired:finalState.manualInterventionRequired,
     conditions,
     budgetStatus,
     auditEvents: await getAuditEventsByRun(runId),
@@ -130,7 +175,15 @@ const buildOrchestrationResponse = async (
     transparency: transparentAnswer.transparency
   };
 
-  saveOrchestrationRun(runId, response);
+  await saveOrchestrationRun(runId, response, {
+    caseId,
+    prompt: finalState.prompt,
+    status: finalState.manualInterventionRequired?"manual_intervention_required":finalDecision,
+    tenantId: finalState.tenantId,
+    workflowId: finalState.workflowId,
+    workflowVersion: finalState.workflowVersion,
+    configVersion: finalState.configVersion,
+  });
   return response;
 };
 
@@ -152,32 +205,109 @@ const runAdvisoryFlow = async (runId: string, prompt: string, requestedBy: strin
   return { mode: intent, runId, finalAnswer, plannerTrace: trace, auditEvents: await getAuditEventsByRun(runId) };
 };
 
+/**
+ * Security input is terminal before case routing. It must never be represented by a fake
+ * RetailCase: doing so lets MCP and mandatory agents run against a caseId that has no
+ * backing record, which produces misleading "Case data not found" traces.
+ */
+const runSecurityBlockedFlow = async (
+  runId: string,
+  prompt: string,
+  requestedBy: string,
+  detectedSignal: string,
+  tenantId: string
+): Promise<OrchestrationResponse> => {
+  const startedAt = new Date().toISOString();
+  await recordAuditEvent(
+    runId,
+    requestedBy,
+    "model_call",
+    { prompt },
+    "blocked",
+    `Phát hiện chỉ thị ghi đè điều khiển hệ thống: ${detectedSignal}. Yêu cầu bị chặn trước khi truy cập hồ sơ hoặc gọi model.`
+  );
+
+  const plannerTrace: AgentTrace = {
+    id: `trace-planner-security-${Date.now()}`,
+    runId,
+    agent: "planner",
+    task: "Validate input security before intent and case routing",
+    status: "failed",
+    summary: "Yêu cầu bị chặn tại cổng bảo mật trước khi tạo/tải hồ sơ; không MCP hay agent nghiệp vụ nào được gọi.",
+    toolCalls: [{
+      toolName: "detectPromptInjection",
+      input: { promptLength: prompt.length },
+      output: { blocked: true, signal: detectedSignal },
+      status: "success",
+    }],
+    startedAt,
+    completedAt: new Date().toISOString(),
+  };
+  const traces = [plannerTrace];
+  const transparentAnswer = buildAnswerTransparency(
+    "Yêu cầu bị từ chối do chứa chỉ thị ghi đè điều khiển hệ thống.",
+    traces,
+    "SECURITY_BLOCKED",
+    "HYBRID_APPROVAL"
+  );
+  const response: OrchestrationResponse = {
+    mode: "CREDIT_APPRAISAL",
+    runId,
+    finalAnswer: transparentAnswer.finalAnswer,
+    reasoning: "Security Gate phát hiện chỉ thị ghi đè có thể điều khiển model. Luồng dừng trước intent classifier, case router, MCP và mọi agent nghiệp vụ.",
+    traces,
+    budgetStatus: {
+      piiMasked: true,
+      missingConsentCalls: 0,
+      highWritesBeforeApproval: 0,
+      modelCallsUsed: 0,
+      maxModelCalls: decisionPolicy.runtimeBudget.maximumModelCalls,
+      estimatedCostUSD: decisionPolicy.runtimeBudget.securityBlockEstimatedCostUsd,
+      replayMode: true,
+    },
+    auditEvents: await getAuditEventsByRun(runId),
+    transparency: transparentAnswer.transparency,
+  };
+  await saveOrchestrationRun(runId, response, { prompt, status: "SECURITY_BLOCKED", tenantId });
+  return response;
+};
+
 export const executeOrchestration = async (
   prompt: string,
   requestedBy: string,
   approvalToken?: string,
-  requestedCaseId?: string
+  requestedCaseId?: string,
+  tenantId = "bank-default"
 ): Promise<OrchestrationResponse | AdvisoryResponse> => {
-  const runId = `run-${Date.now()}`;
+  const runId = `run-${randomUUID()}`;
+
+  const security = screenSecurityInput(prompt);
+  if (security.status === "rejected") return runSecurityBlockedFlow(runId, security.sanitizedInput, requestedBy, security.signals[0], tenantId);
+  const securedPrompt = security.sanitizedInput;
 
   if (!requestedCaseId) {
-    const { intent } = await classifyIntent(prompt);
+    const { intent } = await classifyIntent(securedPrompt);
     if (intent === "ADVISORY_QA" || intent === "OUT_OF_DOMAIN") {
-      return runAdvisoryFlow(runId, prompt, requestedBy, intent);
+      return runAdvisoryFlow(runId, securedPrompt, requestedBy, intent);
     }
   }
 
-  const routed = await routeOrExtractInput(prompt, requestedCaseId);
+  const binding = await resolveRuntimeBinding(tenantId);
+  const routed = await routeOrExtractInput(securedPrompt, requestedCaseId, tenantId);
   if (!routed.ok) throw new OrchestrationInputError(routed.code, routed.message, routed.questions);
   const { caseId } = routed;
-  const retailCase = routed.extractedCase ?? await loadRetailCase(caseId);
+  const retailCase = routed.extractedCase ?? await loadRetailCase(caseId, tenantId);
 
   // Governance: Record starting audit event, attributed to the authenticated human requester.
-  await recordAuditEvent(runId, requestedBy, "agent_call", { prompt, caseId }, "allowed", `Chuyên viên ${requestedBy} khởi chạy quy trình điều phối cho caseId: ${caseId}`);
+  await recordAuditEvent(runId, requestedBy, "agent_call", { tenantId,prompt: securedPrompt,securityStatus:security.status,caseId,workflowId:binding.workflow.workflowId,workflowVersion:binding.workflow.version,configVersion:binding.config.version }, "allowed", `Chuyên viên ${requestedBy} khởi chạy quy trình điều phối cho caseId: ${caseId}`);
 
   if (!retailCase) {
     return {
       runId,
+      tenantId,
+      workflowId: binding.workflow.workflowId,
+      workflowVersion: binding.workflow.version,
+      configVersion: binding.config.version,
       finalAnswer: "Không tìm thấy hồ sơ khách hàng tương ứng với yêu cầu.",
       traces: []
     };
@@ -186,17 +316,26 @@ export const executeOrchestration = async (
   // From here on, the pipeline (injection scan, fast/complex routing, self-correction
   // loop, decision matrix, operations) runs as a LangGraph StateGraph instead of an
   // imperative if/else chain — see orchestration-graph.ts.
-  const finalState = await orchestrationGraph.invoke(
+  let finalState = await orchestrationGraph.invoke(
     {
       runId,
+      tenantId,
+      workflowId: binding.workflow.workflowId,
+      workflowVersion: binding.workflow.version,
+      configVersion: binding.config.version,
+      workflowAllowsAction: binding.workflow.definition.nodes.some(node=>node.type==="action"),
+      allowedActionTools: binding.workflow.definition.nodes.filter(node=>node.type==="action").flatMap(node=>node.allowedTools??[]),
+      maximumDtiPercent:binding.config.thresholds.maxDti*100,
+      maximumModelCalls:binding.config.runtime.maxSteps,
       requestedBy,
-      prompt,
+      prompt: securedPrompt,
       approvalToken,
       caseId,
       customerName: retailCase.demographic.name
     },
-    { configurable: { thread_id: runId } }
+    { configurable: { thread_id: runId }, recursionLimit: binding.config.runtime.maxSteps,signal:AbortSignal.timeout(binding.config.runtime.timeoutSeconds*1000) }
   );
+  finalState=await attachInterruptMetadata(runId,finalState);
 
   return buildOrchestrationResponse(runId, caseId, retailCase, approvalToken, finalState);
 };
@@ -213,26 +352,35 @@ export const streamOrchestration = async (
   requestedBy: string,
   approvalToken: string | undefined,
   onEvent: (event: OrchestrationStreamEvent) => void,
-  requestedCaseId?: string
+  requestedCaseId?: string,
+  tenantId = "bank-default"
 ): Promise<void> => {
-  const runId = `run-${Date.now()}`;
-  console.log(">>> RECEIVED PROMPT IN BACKEND:", JSON.stringify(prompt));
+  const runId = `run-${randomUUID()}`;
+  const security = screenSecurityInput(prompt);
+  if (security.status === "rejected") {
+    const response = await runSecurityBlockedFlow(runId, security.sanitizedInput, requestedBy, security.signals[0], tenantId);
+    onEvent({ type: "node_update", node: "planner", trace: response.traces[0] });
+    onEvent({ type: "final", response });
+    return;
+  }
+  const securedPrompt = security.sanitizedInput;
 
   if (!requestedCaseId) {
-    const { intent } = await classifyIntent(prompt);
+    const { intent } = await classifyIntent(securedPrompt);
     if (intent === "ADVISORY_QA" || intent === "OUT_OF_DOMAIN") {
-      const response = await runAdvisoryFlow(runId, prompt, requestedBy, intent);
+      const response = await runAdvisoryFlow(runId, securedPrompt, requestedBy, intent);
       onEvent({ type: "advisory_final", response });
       return;
     }
   }
 
-  const routed = await routeOrExtractInput(prompt, requestedCaseId);
+  const binding = await resolveRuntimeBinding(tenantId);
+  const routed = await routeOrExtractInput(securedPrompt, requestedCaseId, tenantId);
   if (!routed.ok) throw new OrchestrationInputError(routed.code, routed.message, routed.questions);
   const { caseId } = routed;
-  const retailCase = routed.extractedCase ?? await loadRetailCase(caseId);
+  const retailCase = routed.extractedCase ?? await loadRetailCase(caseId, tenantId);
 
-  await recordAuditEvent(runId, requestedBy, "agent_call", { prompt, caseId }, "allowed", `Chuyên viên ${requestedBy} khởi chạy quy trình điều phối cho caseId: ${caseId}`);
+  await recordAuditEvent(runId, requestedBy, "agent_call", { tenantId,prompt:securedPrompt,securityStatus:security.status,caseId,workflowId:binding.workflow.workflowId,workflowVersion:binding.workflow.version,configVersion:binding.config.version }, "allowed", `Chuyên viên ${requestedBy} khởi chạy quy trình điều phối cho caseId: ${caseId}`);
 
   if (!retailCase) {
     onEvent({
@@ -249,13 +397,21 @@ export const streamOrchestration = async (
   const stream = await orchestrationGraph.stream(
     {
       runId,
+      tenantId,
+      workflowId: binding.workflow.workflowId,
+      workflowVersion: binding.workflow.version,
+      configVersion: binding.config.version,
+      workflowAllowsAction: binding.workflow.definition.nodes.some(node=>node.type==="action"),
+      allowedActionTools: binding.workflow.definition.nodes.filter(node=>node.type==="action").flatMap(node=>node.allowedTools??[]),
+      maximumDtiPercent:binding.config.thresholds.maxDti*100,
+      maximumModelCalls:binding.config.runtime.maxSteps,
       requestedBy,
-      prompt,
+      prompt: securedPrompt,
       approvalToken,
       caseId,
       customerName: retailCase.demographic.name
     },
-    { configurable: { thread_id: runId }, streamMode: "values" }
+    { configurable: { thread_id: runId }, streamMode: "values", recursionLimit: binding.config.runtime.maxSteps,signal:AbortSignal.timeout(binding.config.runtime.timeoutSeconds*1000) }
   );
 
   let previous: Partial<OrchestrationState> = {};
@@ -280,6 +436,30 @@ export const streamOrchestration = async (
     return;
   }
 
+  finalState=await attachInterruptMetadata(runId,finalState);
   const response = await buildOrchestrationResponse(runId, caseId, retailCase, approvalToken, finalState);
+  if(response.pendingApproval)onEvent({type:"approval",runId,approval:response.pendingApproval});
+  for(const result of response.actionResults??[])onEvent({type:"action",runId,result});
+  for(const result of response.compensationResults??[])onEvent({type:"compensation",runId,result});
+  onEvent({type:"terminal",runId,status:response.manualInterventionRequired?"manual_intervention_required":"completed"});
   onEvent({ type: "final", response });
+};
+
+export const resumeOrchestration=async(runId:string,tenantId:string):Promise<OrchestrationResponse>=>{
+  const claimed=await pgQuery(`UPDATE orchestration_runs SET status='resuming' WHERE run_id=$1 AND tenant_id=$2 AND status='paused' RETURNING run_id`,[runId,tenantId]);
+  if(!claimed.rows[0])throw new Error("RUN_NOT_PAUSED_OR_REPLAYED");
+  try{
+  const snapshot=await orchestrationGraph.getState({configurable:{thread_id:runId}});
+  const state=snapshot.values as OrchestrationState;
+  if(!state?.runId||state.tenantId!==tenantId) throw new Error("RUN_NOT_FOUND");
+  const tenantConfig=await getTenantConfigVersion(tenantId,state.configVersion);
+  if(!tenantConfig)throw new Error("PINNED_CONFIG_NOT_FOUND");
+  const config={configurable:{thread_id:runId},recursionLimit:tenantConfig.runtime.maxSteps,signal:AbortSignal.timeout(tenantConfig.runtime.timeoutSeconds*1000)};
+  const approval=await getLatestApproval(tenantId,runId);
+  if(!approval||approval.status==="pending"||approval.status==="expired") throw new Error("APPROVAL_DECISION_REQUIRED");
+  const finalState=await orchestrationGraph.invoke(new Command({resume:{approvalId:approval.id,decision:approval.status}}),config);
+  const retailCase=await loadRetailCase(state.caseId,tenantId);
+  if(!retailCase) throw new Error("CASE_NOT_FOUND");
+  return await buildOrchestrationResponse(runId,state.caseId,retailCase,undefined,finalState);
+  }catch(error){await pgQuery(`UPDATE orchestration_runs SET status='paused' WHERE run_id=$1 AND tenant_id=$2 AND status='resuming'`,[runId,tenantId]);throw error;}
 };

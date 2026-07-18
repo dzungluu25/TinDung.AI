@@ -3,11 +3,12 @@ import { loadRetailCase } from "../data/retail-case-loader";
 
 export const runCustomerProfileAgent = async (
   runId: string,
-  caseId: string
+  caseId: string,
+  tenantId = "bank-default"
 ): Promise<AgentTrace> => {
   const startedAt = new Date().toISOString();
 
-  const retailCase = await loadRetailCase(caseId);
+  const retailCase = await loadRetailCase(caseId, tenantId);
 
   if (!retailCase) {
     return {

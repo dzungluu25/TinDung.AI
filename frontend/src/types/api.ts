@@ -159,6 +159,12 @@ export interface AdvisoryResponse {
 }
 
 export type OrchestrationStreamEvent =
+  | { type: "node_lifecycle"; runId: string; node: string; status: "started" | "completed" | "failed" | "paused"; timestamp: string }
+  | { type: "validation"; runId: string; issues: Array<{ code: string; message: string; nodeId?: string; retryable: boolean }> }
+  | { type: "approval"; runId: string; approval: { id: string; status: string; requiredRole: string; expiresAt: string } }
+  | { type: "action"; runId: string; result: { stepId: string; status: string; attempts: number } }
+  | { type: "compensation"; runId: string; result: { stepId: string; status: string; error?: string } }
+  | { type: "terminal"; runId: string; status: "completed" | "rejected" | "failed" | "manual_intervention_required" }
   | { type: "node_update"; node: AgentRole; trace: AgentTrace; riskTier?: RiskTier }
   | { type: "final"; response: OrchestrationResponse }
   | { type: "advisory_final"; response: AdvisoryResponse }
@@ -169,4 +175,5 @@ export type UserRole = "CREDIT_OFFICER" | "CREDIT_APPROVER";
 export interface AuthUser {
   sub: string;
   role: UserRole;
+  tenantId: string;
 }

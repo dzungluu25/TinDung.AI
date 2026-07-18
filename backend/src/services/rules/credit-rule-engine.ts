@@ -64,15 +64,17 @@ const runRestructureEngine = (
   validIncome: number,
   restructuredMonthlyDebt: number,
   requestedLoan: RequestedLoan,
-  propertyValue: number
+  propertyValue: number,
+  maximumDtiPercent = creditPolicy.maximumDtiPercent,
+  maximumLtvPercent = creditPolicy.maximumLtvPercent
 ): RestructureOutcome => {
-  const loanAmount = Math.min(requestedLoan.amount, Math.floor(propertyValue * (creditPolicy.maximumLtvPercent / 100)));
+  const loanAmount = Math.min(requestedLoan.amount, Math.floor(propertyValue * (maximumLtvPercent / 100)));
   const ltv = calculateLtv(loanAmount, propertyValue);
 
   for (let tenureYears = requestedLoan.tenureYears; tenureYears <= creditPolicy.maximumMortgageTenureYears; tenureYears++) {
     const emi = calculateEmi(loanAmount, creditPolicy.stressAnnualRate, tenureYears);
     const dti = calculateDti(restructuredMonthlyDebt + emi, validIncome);
-    if (dti <= creditPolicy.maximumDtiPercent) {
+    if (dti <= maximumDtiPercent) {
       return { loanAmount, tenureYears, restructuredMonthlyDebt, emi, dti, ltv, success: true };
     }
   }
@@ -93,11 +95,14 @@ export const evaluateCreditRules = (
   runId: string,
   validIncome: number,
   currentMonthlyDebt: number,
-  retailCase: RetailCase
+  retailCase: RetailCase,
+  overrides: {maximumDtiPercent?:number;maximumLtvPercent?:number}={}
 ): CreditAssessmentResult => {
   const findings: DecisionEnvelope[] = [];
   const requestedLoan = retailCase.requestedLoan;
   const propertyValue = retailCase.property.value;
+  const maximumDtiPercent=overrides.maximumDtiPercent??creditPolicy.maximumDtiPercent;
+  const maximumLtvPercent=overrides.maximumLtvPercent??creditPolicy.maximumLtvPercent;
 
   // 1. Calculate Original Scenario
   const originalEmi = calculateEmi(requestedLoan.amount, creditPolicy.stressAnnualRate, requestedLoan.tenureYears);
@@ -120,7 +125,7 @@ export const evaluateCreditRules = (
     citations: ["Rule tín dụng demo 2026.07.18 - cần chủ sở hữu chính sách SHB phê duyệt"]
   });
 
-  if (originalLtv > creditPolicy.maximumLtvPercent) {
+  if (originalLtv > maximumLtvPercent) {
     originalStatus = "FAIL";
     findings.push({
       decisionId: `dec-credit-ltv-${Date.now()}`,
@@ -128,14 +133,14 @@ export const evaluateCreditRules = (
       status: "FAIL",
       severity: "BLOCKER",
       blocksAt: "APPROVAL",
-      finding: `Tỷ lệ LTV gốc (${originalLtv}%) vượt hạn mức tối đa quy định là ${creditPolicy.maximumLtvPercent}%.`,
-      evidence: { originalLtv, limit: creditPolicy.maximumLtvPercent, loanAmount: requestedLoan.amount, propertyValue },
+      finding: `Tỷ lệ LTV gốc (${originalLtv}%) vượt hạn mức tối đa quy định là ${maximumLtvPercent}%.`,
+      evidence: { originalLtv, limit: maximumLtvPercent, loanAmount: requestedLoan.amount, propertyValue },
       ruleIds: [creditPolicy.ruleIds.ltvExceeded],
       citations: ["Rule tín dụng demo 2026.07.18 - ngưỡng LTV chưa được SHB phê duyệt"]
     });
   }
 
-  if (originalDti > creditPolicy.maximumDtiPercent) {
+  if (originalDti > maximumDtiPercent) {
     originalStatus = "FAIL";
     findings.push({
       decisionId: `dec-credit-dti-${Date.now()}`,
@@ -143,8 +148,8 @@ export const evaluateCreditRules = (
       status: "FAIL",
       severity: "BLOCKER",
       blocksAt: "APPROVAL",
-      finding: `Tỷ lệ DTI stress gốc (${originalDti}%) vượt quá ngưỡng an toàn cho phép là ${creditPolicy.maximumDtiPercent}%.`,
-      evidence: { originalDti, limit: creditPolicy.maximumDtiPercent, totalMonthlyDebt: currentMonthlyDebt + originalEmi, validIncome },
+      finding: `Tỷ lệ DTI stress gốc (${originalDti}%) vượt quá ngưỡng an toàn cho phép là ${maximumDtiPercent}%.`,
+      evidence: { originalDti, limit: maximumDtiPercent, totalMonthlyDebt: currentMonthlyDebt + originalEmi, validIncome },
       ruleIds: [creditPolicy.ruleIds.dtiExceeded],
       citations: ["Rule tín dụng demo 2026.07.18 - ngưỡng DTI stress chưa được SHB phê duyệt"]
     });
@@ -178,7 +183,7 @@ export const evaluateCreditRules = (
     0
   );
 
-  const restructureOutcome = runRestructureEngine(validIncome, restructuredMonthlyDebt, requestedLoan, propertyValue);
+  const restructureOutcome = runRestructureEngine(validIncome, restructuredMonthlyDebt, requestedLoan, propertyValue,maximumDtiPercent,maximumLtvPercent);
 
   const restructureScenario: CreditScenario = {
     loanAmount: restructureOutcome.loanAmount,

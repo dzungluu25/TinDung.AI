@@ -74,6 +74,15 @@ export const useOrchestrationStore = create<OrchestrationStoreState>()((set, get
   applyStreamEvent: event => {
     const state = get();
 
+    if (event.type === "node_lifecycle" || event.type === "validation" || event.type === "approval" || event.type === "action" || event.type === "compensation") {
+      set({ runId: state.runId ?? event.runId });
+      return;
+    }
+    if (event.type === "terminal") {
+      if (event.status === "failed" || event.status === "manual_intervention_required") set({ phase: "error", runId: event.runId, error: event.status });
+      return;
+    }
+
     if (event.type === "node_update") {
       let steps = state.steps;
       const riskTier = state.riskTier ?? event.riskTier;

@@ -1,6 +1,8 @@
 import crypto from "crypto";
 import { AuditEvent } from "../../types/trace.types";
 import { pgPool } from "../../config/pg";
+import { detectPromptInjection } from "./input-security.service";
+import { maskPiiText } from "./pii-masking.service";
 
 // Genesis hash for an empty chain — every subsequent event links to its predecessor's hash.
 const GENESIS_HASH = "0".repeat(64);
@@ -59,15 +61,10 @@ export const recordAuditEvent = async (
   status: "allowed" | "blocked" = "allowed",
   customDetails?: string
 ): Promise<AuditEvent> => {
-  let details = customDetails || `Actor: ${actor} executed ${actionType}.`;
+  let details = maskPiiText(customDetails || `Actor: ${actor} executed ${actionType}.`);
   let finalStatus = status;
 
-  const payloadString = JSON.stringify(payload).toLowerCase();
-  if (
-    payloadString.includes("system instruction") ||
-    payloadString.includes("ignore all previous instructions") ||
-    payloadString.includes("override check")
-  ) {
+  if (detectPromptInjection(JSON.stringify(payload))) {
     finalStatus = "blocked";
     details = "PHÁT HIỆN TẤN CÔNG PROMPT INJECTION: Hồ sơ chứa chỉ thị điều khiển hệ thống ngoài phạm vi cho phép. Hệ thống đã cô lập mã độc.";
   }
@@ -90,11 +87,36 @@ export const recordAuditEvent = async (
       const eventForHash = { eventId, runId, timestamp, actor, actionType, status: finalStatus, details };
       const hash = computeHash(prevHash, eventForHash);
 
-      await client.query(
+      const inserted = await client.query<{
+        event_id: string;
+        run_id: string;
+        actor: string;
+        action_type: string;
+        status: string;
+        details: string;
+        prev_hash: string;
+        hash: string;
+      }>(
         `INSERT INTO audit_events (event_id, run_id, timestamp, actor, action_type, status, details, prev_hash, hash)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         RETURNING event_id, run_id, actor, action_type, status, details, prev_hash, hash`,
         [eventId, runId, timestamp, actor, actionType, finalStatus, details, prevHash, hash]
       );
+      const row = inserted.rows[0];
+      if (
+        inserted.rowCount !== 1 ||
+        !row ||
+        row.event_id !== eventId ||
+        row.run_id !== runId ||
+        row.actor !== actor ||
+        row.action_type !== actionType ||
+        row.status !== finalStatus ||
+        row.details !== details ||
+        row.prev_hash !== prevHash ||
+        row.hash !== hash
+      ) {
+        throw new Error(`Audit event ${eventId} failed database read-back verification.`);
+      }
 
       await client.query("COMMIT");
     } catch (err) {
@@ -108,7 +130,8 @@ export const recordAuditEvent = async (
       client.release();
     }
   } catch (dbErr) {
-    console.error("WARNING: Failed to write audit event to database:", dbErr);
+    console.error("Failed to write a verified audit event to database:", dbErr);
+    throw dbErr;
   }
 
   return { eventId, runId, timestamp, actor, actionType, status: finalStatus, details };
