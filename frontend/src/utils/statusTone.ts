@@ -7,13 +7,19 @@ export const stepStatusTone: Record<StepStatus, BadgeTone> = {
   in_progress: "info",
   done: "success",
   skipped: "neutral",
+  degraded: "warning",
+  failed: "danger",
+  blocked: "danger",
 };
 
 export const stepStatusLabel: Record<StepStatus, string> = {
-  pending: "Chờ xử lý",
-  in_progress: "Đang xử lý",
-  done: "Hoàn tất",
-  skipped: "Bỏ qua",
+  pending: "Waiting",
+  in_progress: "Running",
+  done: "Completed",
+  skipped: "Skipped by policy",
+  degraded: "Degraded",
+  failed: "Failed",
+  blocked: "Blocked",
 };
 
 export const severityTone: Record<FindingSeverity, BadgeTone> = {

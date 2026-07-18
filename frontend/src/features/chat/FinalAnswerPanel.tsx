@@ -7,7 +7,7 @@ import { Skeleton } from "../../components/Skeleton";
 import { TypingIndicator } from "../../components/TypingIndicator";
 import { useOrchestrationStore } from "../../store/orchestrationStore";
 import type { PipelineStep } from "../../store/orchestrationStore";
-import type { AnswerTransparency } from "../../types/api";
+import type { AnswerTransparency, OrchestrationTerminalFailure } from "../../types/api";
 import { saveRun } from "../../services/orchestrationService";
 import { getDemoAccessToken } from "../../services/authService";
 import baseStyles from "./FinalAnswerPanel.module.css";
@@ -20,15 +20,31 @@ const TRACE_STATUS = {
   in_progress: { label: "Đang xử lý", icon: Loader2 },
   done: { label: "Hoàn tất", icon: CheckCircle2 },
   skipped: { label: "Bỏ qua", icon: MinusCircle },
+  degraded: { label: "Degraded", icon: TriangleAlert },
+  failed: { label: "Failed", icon: TriangleAlert },
+  blocked: { label: "Blocked", icon: TriangleAlert },
 } as const;
 
-const DecisionTrace = ({ steps, reasoning, running = false }: { steps: PipelineStep[]; reasoning?: string; running?: boolean }) => (
-  <details className={styles.tracePanel} open={running}>
+const isProcessedStep = (step: PipelineStep): boolean =>
+  step.status !== "pending" && step.status !== "in_progress";
+
+const DecisionTrace = ({
+  steps,
+  reasoning,
+  running = false,
+  terminalFailure,
+}: {
+  steps: PipelineStep[];
+  reasoning?: string;
+  running?: boolean;
+  terminalFailure?: OrchestrationTerminalFailure;
+}) => (
+  <details className={styles.tracePanel} open={running || Boolean(terminalFailure)}>
     <summary className={styles.traceSummary}>
       <span className={styles.traceTitleIcon}><Workflow size={16} /></span>
       <span>
         <strong>{running ? "Tiến trình thẩm định" : "Nhật ký ra quyết định"}</strong>
-        <small>{running ? "Cập nhật trực tiếp theo từng bước" : `${steps.filter(step => step.status === "done").length} bước đã hoàn tất`}</small>
+        <small>{running ? "Cập nhật trực tiếp theo từng bước" : `${steps.filter(isProcessedStep).length} bước đã xử lý`}</small>
       </span>
       <ChevronDown size={16} className={styles.chevron} />
     </summary>
@@ -50,9 +66,37 @@ const DecisionTrace = ({ steps, reasoning, running = false }: { steps: PipelineS
           );
         })}
       </ol>
-      {reasoning && <div className={styles.traceConclusion}><strong>Tổng hợp liên kết đa Agent</strong><p>{reasoning}</p></div>}
+      {reasoning && (
+        <div className={[styles.traceConclusion, terminalFailure ? styles.traceConclusionFailed : undefined].filter(Boolean).join(" ")}>
+          <strong>{terminalFailure ? "Fail-closed summary" : "Tổng hợp liên kết đa Agent"}</strong>
+          <p>{reasoning}</p>
+        </div>
+      )}
     </div>
   </details>
+);
+
+const TerminalFailureBanner = ({ failure }: { failure: OrchestrationTerminalFailure }) => (
+  <section className={styles.terminalFailureBanner} role="alert" aria-label="Fail-closed orchestration stop">
+    <div className={styles.terminalFailureHeader}>
+      <TriangleAlert size={17} />
+      <div>
+        <strong>Pipeline stopped fail-closed at {failure.stage}</strong>
+        <span>{failure.message}</span>
+      </div>
+      <Badge tone="danger">{failure.action}</Badge>
+    </div>
+    <div className={styles.failureMeta}>
+      <span>Agent: <strong>{failure.agent ?? failure.stage}</strong></span>
+      <span>Attempts: <strong>{failure.attempts}</strong></span>
+      <span>Severity: <strong>{failure.severity}</strong></span>
+    </div>
+    {failure.errors.length > 0 && (
+      <ul className={styles.failureErrors}>
+        {failure.errors.map((error, index) => <li key={`${index}-${error}`}>{error}</li>)}
+      </ul>
+    )}
+  </section>
 );
 
 const EvidenceClaims = ({ transparency }: { transparency: AnswerTransparency }) => {
@@ -160,7 +204,9 @@ export const FinalAnswerPanel = () => {
     <Card title="Kết luận thẩm định" action={<Badge tone="brand">Run {response.runId.replace("run-", "#")}</Badge>}>
       <p className={styles.answer}>{response.finalAnswer}</p>
 
-      {steps.length > 0 && <DecisionTrace steps={steps} reasoning={response.reasoning} />}
+      {response.terminalFailure && <TerminalFailureBanner failure={response.terminalFailure} />}
+
+      {steps.length > 0 && <DecisionTrace steps={steps} reasoning={response.reasoning} terminalFailure={response.terminalFailure} />}
 
       {response.confidence?.status === "NEEDS_REVIEW" && (
         <div className={styles.errorBox} role="status">

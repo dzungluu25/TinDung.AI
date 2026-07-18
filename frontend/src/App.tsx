@@ -7,6 +7,8 @@ import { MetricsPage } from "./pages/MetricsPage";
 import { DossierQueuePage } from "./pages/DossierQueuePage";
 import { DossierDetailPage } from "./pages/DossierDetailPage";
 import { PolicyConsolePage } from "./pages/PolicyConsolePage";
+import { OperationsPage } from "./pages/OperationsPage";
+import { LoginPage } from "./pages/LoginPage";
 import { getDemoApproverSession } from "./services/authService";
 import { useSessionStore } from "./store/sessionStore";
 
@@ -35,8 +37,13 @@ const isTokenExpired = (token: string): boolean => {
 const AutoLoginWrapper = ({ children }: { children: React.ReactNode }) => {
   const { accessToken, setSession } = useSessionStore();
   const [loading, setLoading] = useState(true);
+  const isLoginRoute = window.location.pathname === "/login";
 
   useEffect(() => {
+    if (isLoginRoute) {
+      setLoading(false);
+      return;
+    }
     const hasValidToken = accessToken && !isTokenExpired(accessToken);
     if (!hasValidToken) {
       setLoading(true);
@@ -56,7 +63,7 @@ const AutoLoginWrapper = ({ children }: { children: React.ReactNode }) => {
     } else {
       setLoading(false);
     }
-  }, [accessToken, setSession]);
+  }, [accessToken, isLoginRoute, setSession]);
 
   if (loading) {
     return (
@@ -102,8 +109,10 @@ export const App = () => (
           <Route path="dossiers/:id" element={<DossierDetailPage />} />
           <Route path="agents" element={<AgentsPage />} />
           <Route path="policy" element={<PolicyConsolePage />} />
+          <Route path="operations" element={<OperationsPage />} />
           <Route path="metrics" element={<MetricsPage />} />
         </Route>
+        <Route path="login" element={<LoginPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

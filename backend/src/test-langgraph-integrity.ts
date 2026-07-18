@@ -11,6 +11,7 @@ import {
   validateAgentTrace,
   validateDecisionOutput,
 } from "./services/orchestration/orchestration-validation.service";
+import { AGENT_EXECUTION_POLICIES, buildStageTerminalFailure } from "./services/orchestration/agent-execution-policy";
 
 const now = new Date().toISOString();
 const validTrace: AgentTrace = {
@@ -50,6 +51,20 @@ assert.equal(resolveValidationRoute(["invalid"], 1, 1, 30), "retry");
 assert.equal(resolveValidationRoute(["invalid"], 2, 2, 30), "retry");
 assert.equal(resolveValidationRoute(["invalid"], 3, 3, 30), "fail");
 assert.equal(resolveValidationRoute(["invalid"], 1, 30, 30), "fail");
+assert.equal(resolveValidationRoute(["invalid"], 1, 1, 30, 0), "fail");
+assert.equal(resolveValidationRoute(["invalid"], 3, 3, 30, 3), "retry");
+assert.equal(AGENT_EXECUTION_POLICIES.profile.failureAction, "STOP");
+assert.equal(AGENT_EXECUTION_POLICIES.fraud.skipAllowed, true);
+assert.deepEqual(buildStageTerminalFailure("credit", 3, ["credit: missing trace"]), {
+  code: "MULTI_AGENT_STAGE_FAILED",
+  stage: "credit",
+  agent: "credit",
+  severity: "blocking",
+  attempts: 3,
+  errors: ["credit: missing trace"],
+  action: "STOP",
+  message: "Required stage credit failed after 3 validation attempt(s); downstream agents and operations were not executed.",
+});
 
 assert.deepEqual(validateDecisionOutput({
   finalDecision: "PASS",

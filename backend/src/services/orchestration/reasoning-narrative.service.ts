@@ -1,6 +1,6 @@
-import { AgentTrace } from "../../types/trace.types";
-import { DecisionEnvelope, AgentRole } from "../../types/agent.types";
-import { FinalDecision } from "./orchestration-graph";
+import type { AgentTrace } from "../../types/trace.types";
+import type { DecisionEnvelope, AgentRole } from "../../types/agent.types";
+import type { FinalDecision } from "./orchestration-graph";
 
 const AGENT_LABEL: Record<AgentRole, string> = {
   planner: "Planner",
@@ -10,6 +10,8 @@ const AGENT_LABEL: Record<AgentRole, string> = {
   legal: "Legal & Compliance Agent",
   legal_audit: "Legal Audit Agent",
   fraud: "Fraud Investigation Agent",
+  auto_policy: "Auto-Policy Gate",
+  human_approval: "Human Approval Gate",
   risk: "Risk Consolidation",
   operations: "Operations Agent",
   governance: "Governance",

@@ -8,20 +8,25 @@ import styles from "./DashboardPage.module.css";
 export const DashboardPage = () => {
   const phase = useOrchestrationStore(s => s.phase);
   const response = useOrchestrationStore(s => s.response);
-  const completedAgents = useOrchestrationStore(s => s.steps.filter(step => step.status === "done").length);
+  const processedAgents = useOrchestrationStore(s =>
+    s.steps.filter(step => step.status !== "pending" && step.status !== "in_progress").length
+  );
+
+  const phaseLabel =
+    phase === "idle" ? "Not started" : phase === "running" ? "Processing" : phase === "error" ? "Error" : "Completed";
 
   return (
     <>
       <Header
-        eyebrow="Tín dụng bán lẻ · NAT FIGURE"
-        title="Phân tích hồ sơ"
-        subtitle="Nhập thông tin khách hàng — hệ thống multi-agent trích xuất rủi ro, kiểm tra tuân thủ và trình kết quả thẩm định theo thời gian thực."
+        eyebrow="Retail credit - NAT FIGURE"
+        title="Loan file appraisal"
+        subtitle="Enter a customer request and monitor the multi-agent workflow as it extracts risks, validates policy, and prepares the appraisal decision."
       />
 
       <div className={styles.summaryBar}>
-        <div><Activity size={17} /><span><small>Phiên hiện tại</small><strong>{phase === "idle" ? "Chưa bắt đầu" : phase === "running" ? "Đang xử lý" : "Đã hoàn tất"}</strong></span></div>
-        <div><BadgeCheck size={17} /><span><small>Agent hoàn tất</small><strong>{completedAgents || "—"}</strong></span></div>
-        <div><CircleDollarSign size={17} /><span><small>Facility</small><strong>{response?.approvalTicketId ?? "Chưa tạo"}</strong></span></div>
+        <div><Activity size={17} /><span><small>Current run</small><strong>{phaseLabel}</strong></span></div>
+        <div><BadgeCheck size={17} /><span><small>Agent processed</small><strong>{processedAgents || "-"}</strong></span></div>
+        <div><CircleDollarSign size={17} /><span><small>Facility</small><strong>{response?.approvalTicketId ?? "Not created"}</strong></span></div>
       </div>
 
       <div className={styles.mainColumn}>

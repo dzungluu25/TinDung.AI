@@ -2,7 +2,7 @@ import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
 import { Loader2 } from "lucide-react";
 import styles from "./AgentNode.module.css";
 
-export type GraphNodeStatus = "inactive" | "pending" | "in_progress" | "done";
+export type GraphNodeStatus = "inactive" | "pending" | "in_progress" | "done" | "degraded" | "failed" | "blocked";
 
 export interface AgentNodeData extends Record<string, unknown> {
   label: string;

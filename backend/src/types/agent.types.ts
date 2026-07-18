@@ -6,6 +6,8 @@ export type AgentRole =
   | "legal"
   | "legal_audit"
   | "fraud"
+  | "auto_policy"
+  | "human_approval"
   | "risk"
   | "operations"
   | "governance";

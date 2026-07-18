@@ -2,10 +2,23 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { ChatCompletionTool, ChatCompletionMessageParam } from "openai/resources/chat/completions";
 import { createAiCompletion } from "../../config/ai-model-router";
+import { config } from "../../config/env";
 import { buildCreditToolServer } from "./tool-server";
 import { AgentTrace, ToolCallTrace } from "../../types/trace.types";
+import { normalizeLlmProviderError } from "../llm/provider-error.service";
 
 const MAX_PLANNING_ITERATIONS = 4;
+
+const formatPlanningError = (error: unknown): string => {
+  const normalized = normalizeLlmProviderError(error, {
+    model: config.fptPlannerModel,
+    operation: "plannerModelCompletion",
+  });
+  if (normalized.code === "MODEL_TOOL_CALL_UNSUPPORTED_OR_REJECTED") {
+    return `${normalized.message} The main appraisal pipeline continues; fraud investigation is forced by conservative policy.`;
+  }
+  return normalized.message;
+};
 
 const SYSTEM_PROMPT = `Bạn là Planner Agent trong hệ thống thẩm định tín dụng bán lẻ.
 Bạn KHÔNG quyết định agent bắt buộc nào chạy — profile, product, credit luôn chạy, và với hồ sơ
@@ -110,6 +123,15 @@ export const runPlanningPhase = async (runId: string, caseId: string, riskTier: 
       }
     }
   } catch (error) {
+    const planningError = formatPlanningError(error);
+    if (toolCallLog.length === 0) {
+      toolCallLog.push({
+        toolName: "plannerModelCompletion",
+        input: { caseId, riskTier, plannerModel: config.fptPlannerModel, fallbackModel: config.fptLegalModel },
+        output: { error: planningError },
+        status: "failed",
+      });
+    }
     return {
       trace: {
         id: `trace-planning-${Date.now()}`,
@@ -117,7 +139,7 @@ export const runPlanningPhase = async (runId: string, caseId: string, riskTier: 
         agent: "planner",
         task: "Optional pre-flight tool planning (MCP)",
         status: "failed",
-        summary: `Planning phase thất bại (không chặn pipeline): ${error instanceof Error ? error.message : "unknown error"}`,
+        summary: `Planning phase degraded (non-blocking): ${planningError}`,
         toolCalls: toolCallLog,
         startedAt,
         completedAt: new Date().toISOString(),

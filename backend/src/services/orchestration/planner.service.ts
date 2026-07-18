@@ -29,12 +29,15 @@ const TRACE_KEYS = [
   "plannerTrace",
   "planningTrace",
   "profileTrace",
-  "selfCorrectionTrace",
   "productTrace",
   "creditTrace",
   "fraudTrace",
+  "autoPolicyTrace",
   "legalTrace",
+  "selfCorrectionTrace",
+  "legalAuditTrace",
   "riskTrace",
+  "humanApprovalTrace",
   "opsTrace",
 ] as const;
 
@@ -146,6 +149,51 @@ const buildOrchestrationResponse = async (
     const traces=maskPiiPayload(assembleTraces(finalState)) as AgentTrace[];
     const response:OrchestrationResponse={mode:"CREDIT_APPRAISAL",runId,tenantId:resolvedTenantId,workflowId:finalState.workflowId,workflowVersion:finalState.workflowVersion,configVersion:finalState.configVersion,finalAnswer:"[CHỜ PHÊ DUYỆT] Workflow đã được checkpoint và tạm dừng trước thao tác nghiệp vụ.",reasoning:"Human approval gate đã tạm dừng LangGraph; chưa có action nào được thực hiện.",traces,approvalTicketId:approval.id,pendingApproval:approval,auditEvents:await getAuditEventsByRun(runId)};
     await saveOrchestrationRun(runId,response,{caseId,prompt:finalState.prompt,status:"paused",tenantId:resolvedTenantId,workflowId:finalState.workflowId,workflowVersion:finalState.workflowVersion,configVersion:finalState.configVersion});
+    return response;
+  }
+
+  if (finalState.terminalFailure) {
+    const rawTraces = assembleTraces(finalState);
+    const maskedTraces = maskPiiPayload(rawTraces) as AgentTrace[];
+    const failure = finalState.terminalFailure;
+    const budgetStatus: CostBudgetStatus = {
+      piiMasked: true,
+      missingConsentCalls: 0,
+      highWritesBeforeApproval: 0,
+      modelCallsUsed: finalState.modelCallsCount,
+      maxModelCalls: finalState.maximumModelCalls,
+      estimatedCostUSD: Number((finalState.modelCallsCount * decisionPolicy.runtimeBudget.estimatedCostPerModelCallUsd).toFixed(4)),
+      replayMode: true
+    };
+    const response: OrchestrationResponse = {
+      mode: "CREDIT_APPRAISAL",
+      runId,
+      tenantId: resolvedTenantId,
+      workflowId: finalState.workflowId,
+      workflowVersion: finalState.workflowVersion,
+      configVersion: finalState.configVersion,
+      finalAnswer: `[DỪNG AN TOÀN] ${failure.message} Stage: ${failure.stage}. Lỗi: ${failure.errors.join("; ") || "UNKNOWN"}. Không chạy agent phía sau hoặc action nghiệp vụ sau lỗi này.`,
+      reasoning: `Pipeline stopped fail-closed at ${failure.stage}; downstream agents and operations were blocked by orchestration policy.`,
+      traces: maskedTraces,
+      actionResults: finalState.actionResults,
+      compensationResults: finalState.compensationResults,
+      manualInterventionRequired: finalState.manualInterventionRequired,
+      conditions: finalState.conditions,
+      budgetStatus,
+      auditEvents: await getAuditEventsByRun(runId),
+      approvalMode: finalState.approvalMode,
+      confidence: finalState.confidence,
+      terminalFailure: failure,
+    };
+    await saveOrchestrationRun(runId, response, {
+      caseId,
+      prompt: finalState.prompt,
+      status: "failed",
+      tenantId: resolvedTenantId,
+      workflowId: finalState.workflowId,
+      workflowVersion: finalState.workflowVersion,
+      configVersion: finalState.configVersion,
+    });
     return response;
   }
 
@@ -381,7 +429,8 @@ export const executeOrchestration = async (
       allowedActionTools: binding.workflow.definition.nodes.filter(node=>node.type==="action").flatMap(node=>node.allowedTools??[]),
       maximumDtiPercent:binding.config.thresholds.maxDti*100,
       policyThresholds:binding.config.thresholds,
-      maximumModelCalls:binding.config.runtime.maxSteps,
+      maximumModelCalls:decisionPolicy.runtimeBudget.maximumModelCalls,
+      maximumStageCorrections:binding.config.runtime.maxRetriesPerAgent,
       requestedBy,
       prompt: securedPrompt,
       approvalToken,
@@ -467,7 +516,8 @@ export const streamOrchestration = async (
       allowedActionTools: binding.workflow.definition.nodes.filter(node=>node.type==="action").flatMap(node=>node.allowedTools??[]),
       maximumDtiPercent:binding.config.thresholds.maxDti*100,
       policyThresholds:binding.config.thresholds,
-      maximumModelCalls:binding.config.runtime.maxSteps,
+      maximumModelCalls:decisionPolicy.runtimeBudget.maximumModelCalls,
+      maximumStageCorrections:binding.config.runtime.maxRetriesPerAgent,
       requestedBy,
       prompt: securedPrompt,
       approvalToken,
@@ -504,7 +554,7 @@ export const streamOrchestration = async (
   if(response.pendingApproval)onEvent({type:"approval",runId,approval:response.pendingApproval});
   for(const result of response.actionResults??[])onEvent({type:"action",runId,result});
   for(const result of response.compensationResults??[])onEvent({type:"compensation",runId,result});
-  onEvent({type:"terminal",runId,status:response.manualInterventionRequired?"manual_intervention_required":"completed"});
+  onEvent({type:"terminal",runId,status:response.terminalFailure?"failed":response.manualInterventionRequired?"manual_intervention_required":"completed"});
   onEvent({ type: "final", response });
 };
 

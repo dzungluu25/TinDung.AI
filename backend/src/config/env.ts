@@ -1,11 +1,4 @@
-import dotenv from "dotenv";
-import path from "path";
-import fs from "fs";
-
-const hostEnvPath = path.resolve(__dirname, "../../../.env");
-const dockerEnvPath = path.resolve(__dirname, "../../.env");
-const envPath = fs.existsSync(hostEnvPath) ? hostEnvPath : dockerEnvPath;
-dotenv.config({ path: envPath });
+import "./load-env";
 
 export const config = {
   port: process.env.PORT || 3000,
@@ -20,9 +13,9 @@ export const config = {
   demoAdminPassword: process.env.DEMO_ADMIN_PASSWORD || "",
   demoAuditorPassword: process.env.DEMO_AUDITOR_PASSWORD || "",
   publicDemoSession: process.env.ENABLE_PUBLIC_DEMO_SESSION === "true" || (process.env.NODE_ENV || "development") !== "production",
-  fptMarketplaceApiKey: process.env.LEGAL_LLM_API_KEY || process.env.FPT_MARKETPLACE_API_KEY || "",
-  fptMarketplaceBaseUrl: process.env.LEGAL_LLM_BASE_URL || process.env.FPT_MARKETPLACE_BASE_URL || "https://mkp-api.fptcloud.com",
-  fptLegalModel: process.env.LEGAL_LLM_MODEL || process.env.FPT_LEGAL_MODEL || "GLM-5.1",
+  fptMarketplaceApiKey: process.env.LEGAL_LLM_API_KEY || process.env.FPT_MARKETPLACE_API_KEY || process.env.FPT_API_KEY || "",
+  fptMarketplaceBaseUrl: process.env.LEGAL_LLM_BASE_URL || process.env.FPT_MARKETPLACE_BASE_URL || process.env.FPT_BASE_URL || "https://mkp-api.fptcloud.com",
+  fptLegalModel: process.env.LEGAL_LLM_MODEL || process.env.FPT_LEGAL_MODEL || process.env.FPT_MODEL || "GLM-5.1",
   fptPlannerModel: process.env.PLANNER_LLM_MODEL || process.env.FPT_PLANNER_MODEL || "DeepSeek-V4-Flash",
   fptExtractionModel: process.env.EXTRACTION_LLM_MODEL || process.env.FPT_EXTRACTION_MODEL || "DeepSeek-V4-Flash",
   ocrLanguages: process.env.OCR_LANGUAGES || "vie+eng",

@@ -8,6 +8,9 @@ export type AgentRole =
   | "product"
   | "legal"
   | "legal_audit"
+  | "fraud"
+  | "auto_policy"
+  | "human_approval"
   | "risk"
   | "operations"
   | "governance";
@@ -42,8 +45,11 @@ export interface AgentTrace {
   id: string;
   runId: string;
   agent: AgentRole;
+  stage?: string;
   task: string;
   status: AgentStatus | "completed" | "failed" | "blocked";
+  executionStatus?: "completed" | "skipped_by_policy" | "degraded" | "terminal_failure";
+  statusReason?: string;
   summary: string;
   toolCalls: ToolCallTrace[];
   startedAt: string;
@@ -76,6 +82,33 @@ export interface ConditionPrecedent {
   description: string;
   blocksAt: BlocksAt;
   status: "pending" | "fulfilled";
+}
+
+export interface ActionStepResult {
+  stepId: string;
+  status: "completed" | "failed" | "skipped";
+  idempotencyKey?: string;
+  attempts: number;
+  output?: Record<string, unknown>;
+  error?: string;
+}
+
+export interface CompensationResult {
+  stepId: string;
+  status: "completed" | "failed";
+  output?: Record<string, unknown>;
+  error?: string;
+}
+
+export interface OrchestrationTerminalFailure {
+  code: "MULTI_AGENT_STAGE_FAILED";
+  stage: string;
+  agent?: string;
+  severity: "blocking";
+  attempts: number;
+  errors: string[];
+  message: string;
+  action: "STOP" | "ROLLBACK";
 }
 
 export interface VerifiedCitation {
@@ -116,6 +149,10 @@ export interface OrchestrationResponse {
   reasoning?: string;
   traces: AgentTrace[];
   approvalTicketId?: string;
+  pendingApproval?: ApprovalRecord;
+  actionResults?: ActionStepResult[];
+  compensationResults?: CompensationResult[];
+  manualInterventionRequired?: boolean;
   conditions?: ConditionPrecedent[];
   budgetStatus?: CostBudgetStatus;
   auditEvents?: AuditEvent[];
@@ -141,6 +178,7 @@ export interface OrchestrationResponse {
     policyVersions: Record<string, string>;
   };
   transparency?: AnswerTransparency;
+  terminalFailure?: OrchestrationTerminalFailure;
 }
 
 export type RiskTier = "FAST" | "COMPLEX";
@@ -202,4 +240,85 @@ export type OrchestrationStreamEvent =
     citationPolicy: CitationPolicy;
     effectiveFrom: string;
     updatedBy: string;
+  }
+
+  export type WorkflowStatus = "draft" | "published" | "deprecated";
+  export type WorkflowNodeType = "start" | "router" | "planner" | "agent" | "retrieval" | "tool" | "validation" | "decision" | "human_gate" | "action" | "compensation" | "end";
+
+  export interface WorkflowNode {
+    id: string;
+    type: WorkflowNodeType;
+    outputSchema?: Record<string, unknown>;
+    citationRequired?: boolean;
+    retryLimit?: number;
+    risk?: "low" | "medium" | "high";
+    allowedTools?: string[];
+    compensationNodeId?: string;
+  }
+
+  export interface WorkflowEdge {
+    from: string;
+    to: string;
+    condition?: string;
+    fallback?: boolean;
+  }
+
+  export interface WorkflowDefinition {
+    id: string;
+    tenantId: string;
+    name: string;
+    nodes: WorkflowNode[];
+    edges: WorkflowEdge[];
+  }
+
+  export interface WorkflowVersion {
+    workflowId: string;
+    tenantId: string;
+    version: string;
+    status: WorkflowStatus;
+    definition: WorkflowDefinition;
+    effectiveFrom?: string;
+    createdBy: string;
+    createdAt: string;
+    publishedBy?: string;
+    publishedAt?: string;
+  }
+
+  export interface ValidationIssue {
+    code: "INVALID_SCHEMA" | "MISSING_CITATION" | "INVALID_SOURCE" | "OUTDATED_SOURCE" | "UNSUPPORTED_CLAIM" | "SOURCE_CONFLICT" | "LOW_CONFIDENCE" | "BUSINESS_RULE_FAILED" | "LEGAL_VIOLATION" | "RETRY_EXCEEDED";
+    message: string;
+    nodeId?: string;
+    claimId?: string;
+    retryable: boolean;
+  }
+
+  export type ApprovalDecision = "approved" | "rejected" | "more_information";
+
+  export interface ApprovalRecord {
+    id: string;
+    tenantId: string;
+    runId: string;
+    checkpointId: string;
+    workflowId: string;
+    workflowVersion: string;
+    requiredRole: string;
+    status: "pending" | ApprovalDecision | "expired";
+    expiresAt: string;
+    decidedBy?: string;
+    decidedAt?: string;
+    comment?: string;
+    createdAt: string;
+  }
+
+  export interface RunRecord {
+    run_id: string;
+    case_id: string;
+    status: string;
+    response_payload: OrchestrationResponse | AdvisoryResponse | null;
+    created_at: string;
+    workflow_id: string;
+    workflow_version: string;
+    config_version: string;
+    saved_at?: string | null;
+    saved_by?: string | null;
   }

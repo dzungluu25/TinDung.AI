@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { Header } from "../layouts/Header";
@@ -9,13 +9,11 @@ import { useSessionStore } from "../store/sessionStore";
 
 export const LoginPage = () => {
   const navigate = useNavigate();
-  const { accessToken, setSession } = useSessionStore();
+  const { setSession } = useSessionStore();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  if (accessToken) return <Navigate to="/dossiers" replace />;
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();

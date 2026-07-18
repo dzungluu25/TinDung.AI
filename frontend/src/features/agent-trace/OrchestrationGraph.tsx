@@ -3,28 +3,32 @@ import { ReactFlow, Background, type Edge } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Card } from "../../components/Card";
 import { AgentNode, type AgentFlowNode, type GraphNodeStatus } from "./AgentNode";
-import { useOrchestrationStore, type PipelineStep } from "../../store/orchestrationStore";
+import { useOrchestrationStore, type PipelineStep, type StepStatus } from "../../store/orchestrationStore";
 import type { StepKey } from "../../utils/parseAgentState";
 import styles from "./OrchestrationGraph.module.css";
 
-// Static positions mirroring the real topology in
-// backend/src/services/orchestration/orchestration-graph.ts — this is not a decorative
-// diagram, it's the actual compiled StateGraph (classify -> profile -> product -> fast/complex
-// split -> ... -> operations), so the highlighted path always matches what really ran.
 const NODE_LAYOUT: { id: string; stepKey?: StepKey; label: string; x: number; y: number }[] = [
-  { id: "classify", stepKey: "planner", label: "Planner (classify)", x: 300, y: 0 },
-  { id: "profile", stepKey: "profile", label: "Customer Profile", x: 300, y: 80 },
-  { id: "product", stepKey: "product", label: "Product & Policy", x: 300, y: 160 },
-  { id: "markFastPass", label: "Fast Pass", x: 80, y: 260 },
-  { id: "credit", stepKey: "credit", label: "Credit Risk", x: 500, y: 260 },
-  { id: "legal", stepKey: "legal", label: "Legal & Compliance", x: 500, y: 340 },
-  { id: "selfCorrection", stepKey: "self-correction", label: "Self-Correction Loop", x: 700, y: 420 },
-  { id: "legalAudit", stepKey: "legal_audit", label: "Legal Audit", x: 500, y: 420 },
-  { id: "risk", stepKey: "risk", label: "Risk Consolidation", x: 500, y: 500 },
-  { id: "operations", stepKey: "operations", label: "Operations", x: 300, y: 580 },
+  { id: "classify", stepKey: "planner", label: "Planner classify", x: 300, y: 0 },
+  { id: "planning", stepKey: "planning", label: "MCP planning", x: 300, y: 78 },
+  { id: "profile", stepKey: "profile", label: "Customer Profile", x: 300, y: 156 },
+  { id: "product", stepKey: "product", label: "Product & Policy", x: 300, y: 234 },
+  { id: "credit", stepKey: "credit", label: "Credit Risk", x: 300, y: 312 },
+  { id: "fraud", stepKey: "fraud", label: "Fraud Investigation", x: 300, y: 390 },
+  { id: "autoPolicy", stepKey: "auto_policy", label: "Auto-Policy Gate", x: 90, y: 480 },
+  { id: "legal", stepKey: "legal", label: "Legal & Compliance", x: 510, y: 480 },
+  { id: "selfCorrection", stepKey: "self-correction", label: "Self-Correction Loop", x: 720, y: 558 },
+  { id: "legalAudit", stepKey: "legal_audit", label: "Legal Audit", x: 510, y: 558 },
+  { id: "risk", stepKey: "risk", label: "Risk Consolidation", x: 510, y: 636 },
+  { id: "humanApproval", stepKey: "human_approval", label: "Human Approval", x: 300, y: 714 },
+  { id: "operations", stepKey: "operations", label: "Operations", x: 300, y: 792 },
 ];
 
 const findStep = (steps: PipelineStep[], key?: StepKey) => (key ? steps.find(s => s.key === key) : undefined);
+
+const toGraphStatus = (status: StepStatus): GraphNodeStatus =>
+  status === "in_progress" ? "in_progress" :
+    status === "done" || status === "skipped" ? "done" :
+      status;
 
 export const OrchestrationGraph = () => {
   const steps = useOrchestrationStore(s => s.steps);
@@ -32,26 +36,20 @@ export const OrchestrationGraph = () => {
   const phase = useOrchestrationStore(s => s.phase);
 
   const hasSelfCorrection = steps.some(s => s.key === "self-correction");
-  const opsStep = findStep(steps, "operations");
-  const productStep = findStep(steps, "product");
 
   const nodes: AgentFlowNode[] = useMemo(() => {
     return NODE_LAYOUT.filter(n => n.id !== "selfCorrection" || hasSelfCorrection).map(n => {
+      const step = findStep(steps, n.stepKey);
+      const isComplexOnly = ["legal", "legalAudit", "risk", "selfCorrection"].includes(n.id);
+      const isFastOnly = n.id === "autoPolicy";
       let status: GraphNodeStatus;
-      if (n.id === "markFastPass") {
-        if (riskTier === "COMPLEX") status = "inactive";
-        else if (riskTier === undefined) status = phase === "idle" ? "inactive" : "pending";
-        else if (opsStep && opsStep.status !== "pending") status = "done";
-        else if (productStep?.status === "done") status = "in_progress";
-        else status = "pending";
-      } else if (["credit", "legal", "risk", "selfCorrection", "legalAudit"].includes(n.id) && riskTier === "FAST") {
-        status = "inactive";
-      } else {
-        const step = findStep(steps, n.stepKey);
-        if (!step) status = phase === "idle" ? "inactive" : "pending";
-        else if (step.status === "skipped") status = "inactive";
-        else status = step.status === "pending" ? "pending" : step.status === "in_progress" ? "in_progress" : "done";
-      }
+
+      if (!step && phase === "idle") status = "inactive";
+      else if (!step && isComplexOnly && riskTier === "FAST") status = "inactive";
+      else if (!step && isFastOnly && riskTier === "COMPLEX") status = "inactive";
+      else if (!step) status = "pending";
+      else if (step.status === "skipped") status = "inactive";
+      else status = toGraphStatus(step.status);
 
       return {
         id: n.id,
@@ -62,18 +60,22 @@ export const OrchestrationGraph = () => {
         selectable: false,
       };
     });
-  }, [steps, riskTier, phase, opsStep, productStep, hasSelfCorrection]);
+  }, [steps, riskTier, phase, hasSelfCorrection]);
 
   const edges: Edge[] = useMemo(() => {
     const base: Edge[] = [
-      { id: "e-classify-profile", source: "classify", target: "profile" },
+      { id: "e-classify-planning", source: "classify", target: "planning" },
+      { id: "e-planning-profile", source: "planning", target: "profile" },
       { id: "e-profile-product", source: "profile", target: "product" },
-      { id: "e-product-fast", source: "product", target: "markFastPass" },
       { id: "e-product-credit", source: "product", target: "credit" },
-      { id: "e-fast-ops", source: "markFastPass", target: "operations" },
-      { id: "e-credit-legal", source: "credit", target: "legal" },
+      { id: "e-credit-fraud", source: "credit", target: "fraud" },
+      { id: "e-fraud-auto", source: "fraud", target: "autoPolicy" },
+      { id: "e-fraud-legal", source: "fraud", target: "legal" },
+      { id: "e-auto-human", source: "autoPolicy", target: "humanApproval" },
+      { id: "e-auto-legal", source: "autoPolicy", target: "legal" },
       { id: "e-legalaudit-risk", source: "legalAudit", target: "risk" },
-      { id: "e-risk-ops", source: "risk", target: "operations" },
+      { id: "e-risk-human", source: "risk", target: "humanApproval" },
+      { id: "e-human-ops", source: "humanApproval", target: "operations" },
     ];
 
     if (hasSelfCorrection) {
@@ -93,14 +95,14 @@ export const OrchestrationGraph = () => {
   }, [hasSelfCorrection, nodes]);
 
   return (
-    <Card title="Sơ đồ điều phối (LangGraph StateGraph)">
+    <Card title="So do dieu phoi (LangGraph StateGraph)">
       <div className={styles.canvas}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
           nodeTypes={{ agentNode: AgentNode }}
           fitView
-          fitViewOptions={{ padding: 0.25 }}
+          fitViewOptions={{ padding: 0.22 }}
           nodesDraggable={false}
           nodesConnectable={false}
           elementsSelectable={false}

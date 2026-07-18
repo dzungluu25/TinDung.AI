@@ -1,26 +1,30 @@
-import dotenv from "dotenv";
-import path from "path";
-import fs from "fs";
+import "./load-env";
 import { Pool } from "pg";
 
-// Loaded here (not just in config/env.ts) so pgPool's connection string is correct
-// regardless of which module happens to import this file first in the dependency graph.
-const hostEnvPath = path.resolve(__dirname, "../../../.env");
-const dockerEnvPath = path.resolve(__dirname, "../../.env");
-const envPath = fs.existsSync(hostEnvPath) ? hostEnvPath : dockerEnvPath;
-dotenv.config({ path: envPath });
+const buildPgPoolConfig = () => {
+  if (process.env.SUPABASE_DB_URL) {
+    return {
+      connectionString: process.env.SUPABASE_DB_URL,
+      ssl: { rejectUnauthorized: false },
+      max: 10,
+      idleTimeoutMillis: 500,
+      connectionTimeoutMillis: 5000,
+    };
+  }
 
-if (!process.env.SUPABASE_DB_URL) {
-  throw new Error("SUPABASE_DB_URL is required; Postgres now always connects through Supabase.");
-}
+  return {
+    host: process.env.PG_HOST || "localhost",
+    port: Number(process.env.PG_PORT) || 5432,
+    user: process.env.PG_USER || "vaic",
+    password: process.env.PG_PASSWORD || "vaic_dev_password",
+    database: process.env.PG_DB || "vaic_db",
+    max: 10,
+    idleTimeoutMillis: 500,
+    connectionTimeoutMillis: 5000,
+  };
+};
 
-export const pgPool = new Pool({
-  connectionString: process.env.SUPABASE_DB_URL,
-  ssl: { rejectUnauthorized: false },
-  max: 10,
-  idleTimeoutMillis: 500,
-  connectionTimeoutMillis: 5000,
-});
+export const pgPool = new Pool(buildPgPoolConfig());
 
 pgPool.on("error", (err: Error) => {
   console.error("Unexpected error on idle PostgreSQL client:", err);
