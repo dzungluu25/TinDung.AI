@@ -129,7 +129,7 @@ export const PolicyConsolePage = () => {
       <Header
         eyebrow="Bank policy console"
         title="Cấu hình chính sách vận hành"
-        subtitle="Thiết lập ngưỡng rủi ro, ngân sách agent, mô hình AI được phép và chính sách bằng chứng — áp dụng riêng cho ngân hàng của bạn."
+        subtitle="Quy định NHNN áp dụng chung toàn ngành, cộng với chính sách vận hành riêng mà ngân hàng của bạn có thể tự tùy chỉnh."
         action={
           <span className={styles.currentVersion}>
             <ShieldCheck size={14} />
@@ -144,6 +144,9 @@ export const PolicyConsolePage = () => {
         }
       />
 
+      <RegulatoryBaseline />
+
+      <h2 className={styles.sectionTitle}>Chính sách tùy chỉnh của ngân hàng</h2>
       <div className={styles.grid}>
         <Card title="Ngưỡng rủi ro tín dụng">
           <div className={styles.fieldStack}>
@@ -155,7 +158,7 @@ export const PolicyConsolePage = () => {
             />
             <PolicyField
               label="DTI tối đa"
-              hint="Phải nằm trong khoảng (0, 1]"
+              hint={`Tối đa ${REGULATORY_MAX_DTI * 100}% theo trần quy định NHNN — có thể đặt thấp hơn để thận trọng hơn`}
               error={errors.maxDti}
               type="number"
               step="0.01"
