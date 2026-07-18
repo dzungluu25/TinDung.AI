@@ -1,4 +1,4 @@
-import { CheckCircle2, CircleDashed, Loader2, MinusCircle } from "lucide-react";
+import { CheckCircle2, CircleDashed, Loader2, MinusCircle, ShieldAlert, TriangleAlert } from "lucide-react";
 import { Card } from "../../components/Card";
 import { Badge } from "../../components/Badge";
 import { Skeleton } from "../../components/Skeleton";
@@ -15,6 +15,9 @@ const STEP_ICON: Record<StepStatus, typeof CheckCircle2> = {
   in_progress: Loader2,
   done: CheckCircle2,
   skipped: MinusCircle,
+  degraded: TriangleAlert,
+  failed: ShieldAlert,
+  blocked: ShieldAlert,
 };
 
 const stepDurationMs = (step: PipelineStep): number | null => {
@@ -25,6 +28,8 @@ const stepDurationMs = (step: PipelineStep): number | null => {
 const StepRow = ({ step, isLast }: { step: PipelineStep; isLast: boolean }) => {
   const Icon = STEP_ICON[step.status];
   const duration = stepDurationMs(step);
+  const trace = step.trace;
+  const hasTraceDetails = (step.status === "done" || step.status === "degraded" || step.status === "failed") && trace;
 
   return (
     <li className={styles.item}>
@@ -53,16 +58,23 @@ const StepRow = ({ step, isLast }: { step: PipelineStep; isLast: boolean }) => {
           </div>
         )}
 
-        {step.status === "in_progress" && <TypingIndicator label="Agent đang xử lý…" />}
+        {step.status === "in_progress" && <TypingIndicator label="Agent is processing..." />}
 
-        {step.status === "skipped" && <p className={styles.skippedNote}>Không thuộc luồng xử lý của hồ sơ này.</p>}
+        {step.status === "skipped" && (
+          <p className={styles.skippedNote}>{step.trace?.statusReason ?? "Skipped by policy for this case."}</p>
+        )}
 
-        {step.status === "done" && step.trace && (
+        {step.status === "blocked" && (
+          <p className={styles.blockedNote}>Not executed because an upstream required stage failed.</p>
+        )}
+
+        {hasTraceDetails && (
           <>
-            <p className={styles.summary}>{step.trace.summary}</p>
-            {step.trace.findings && <FindingsList findings={step.trace.findings} />}
-            <ToolCallLog toolCalls={step.trace.toolCalls} />
-            {step.trace.completedAt && <span className={styles.timestamp}>{formatTimestamp(step.trace.completedAt)}</span>}
+            <p className={styles.summary}>{trace.summary}</p>
+            {trace.statusReason && <p className={styles.skippedNote}>{trace.statusReason}</p>}
+            {trace.findings && <FindingsList findings={trace.findings} />}
+            <ToolCallLog toolCalls={trace.toolCalls} />
+            {trace.completedAt && <span className={styles.timestamp}>{formatTimestamp(trace.completedAt)}</span>}
           </>
         )}
       </div>
@@ -76,14 +88,14 @@ export const AgentTimeline = () => {
 
   if (phase === "idle") {
     return (
-      <Card title="Luồng xử lý Agent (LangGraph Orchestration)">
-        <p className={styles.empty}>Chưa có phiên điều phối nào đang chạy.</p>
+      <Card title="Agent workflow (LangGraph Orchestration)">
+        <p className={styles.empty}>No orchestration run yet.</p>
       </Card>
     );
   }
 
   return (
-    <Card title="Luồng xử lý Agent (LangGraph Orchestration)">
+    <Card title="Agent workflow (LangGraph Orchestration)">
       <ol className={styles.timeline}>
         {steps.map((step, idx) => (
           <StepRow key={step.key} step={step} isLast={idx === steps.length - 1} />

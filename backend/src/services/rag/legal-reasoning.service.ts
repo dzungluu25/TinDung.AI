@@ -1,11 +1,17 @@
 import { getFptMarketplaceClient } from "../../config/fpt-marketplace";
 import { config } from "../../config/env";
 import legalLlmContractJson from "../../policy/legal-llm-contract.json";
-import { RetailCase, ConsentRegistry } from "../../types/case.types";
-import { DecisionEnvelope } from "../../types/agent.types";
+import type { RetailCase, ConsentRegistry } from "../../types/case.types";
+import type { DecisionEnvelope } from "../../types/agent.types";
+import type { ProjectPolicyDetails, RegulationClauseDetails } from "./policy-rag.service";
 import { queryProjectGuarantee, queryRegulationClause } from "./policy-rag.service";
-import { ToolCallTrace } from "../../types/trace.types";
+import type { ToolCallTrace } from "../../types/trace.types";
 import { ChatCompletionTool, ChatCompletionMessageParam, ChatCompletionToolMessageParam } from "openai/resources/chat/completions";
+import {
+  isToolCallRejectedByProvider,
+  normalizeLlmProviderError,
+  type NormalizedLlmProviderError,
+} from "../llm/provider-error.service";
 
 const MAX_TOOL_ITERATIONS = 6;
 
@@ -111,7 +117,7 @@ const TOOLS: ChatCompletionTool[] = [
 // Canonical, versioned contract shared with the fine-tuning dataset builder.
 const SYSTEM_PROMPT = LEGAL_LLM_CONTRACT.systemPrompt;
 
-interface LegalReasoningInput {
+export interface LegalReasoningInput {
   maritalStatus: RetailCase["demographic"]["maritalStatus"];
   hasInsuranceTyingSignal: boolean;
   propertyStatus: RetailCase["property"]["status"];
@@ -123,6 +129,8 @@ interface LegalReasoningInput {
 export interface LegalReasoningResult {
   findings: DecisionEnvelope[];
   toolCalls: ToolCallTrace[];
+  mode?: "llm_tool_calling" | "deterministic_fallback";
+  providerError?: NormalizedLlmProviderError;
 }
 
 const FINDING_STATUSES = new Set(["PASS", "CONDITIONAL_PASS", "VIOLATION", "BLOCKED", "FAIL"]);
@@ -203,6 +211,221 @@ const executeTool = async (
   }
 };
 
+const hasProductionGuarantee = (project: ProjectPolicyDetails | null | undefined): boolean =>
+  Boolean(project?.isGuaranteedBySHB && project.verificationStatus !== "DEMO_ONLY");
+
+export const buildDeterministicLegalFindings = (
+  input: LegalReasoningInput,
+  projectGuarantee: ProjectPolicyDetails | null = null
+): DecisionEnvelope[] => {
+  const findings: DecisionEnvelope[] = [];
+  let sequence = 0;
+  const nextId = (ruleId: string): string =>
+    `dec-legal-${ruleId.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now()}-${++sequence}`;
+  const addFinding = (
+    ruleId: string,
+    status: DecisionEnvelope["status"],
+    severity: DecisionEnvelope["severity"],
+    blocksAt: DecisionEnvelope["blocksAt"],
+    finding: string,
+    evidence: Record<string, unknown>,
+    requiredFix?: string
+  ) => {
+    findings.push({
+      decisionId: nextId(ruleId),
+      agent: "legal",
+      status,
+      severity,
+      blocksAt,
+      finding,
+      evidence,
+      ruleIds: [ruleId],
+      citations: [],
+      requiredFix,
+    });
+  };
+
+  if (input.hasInsuranceTyingSignal) {
+    addFinding(
+      "LEGAL_INSURANCE_TYING_DETECTED",
+      "VIOLATION",
+      "BLOCKER",
+      "APPROVAL",
+      "Detected a mandatory insurance-tying signal in the product offer; approval must stop until the condition is removed.",
+      { summary: "Product findings indicate insuranceTyingApplied=true.", clauseId: "Clause-Insurance-Tying" },
+      "Remove the mandatory insurance condition and reprice the offer independently."
+    );
+  }
+
+  if (input.maritalStatus === "married") {
+    if (input.maritalSignatureWarning) {
+      addFinding(
+        "LEGAL_MARITAL_SIGNATURE_MISSING",
+        "FAIL",
+        "BLOCKER",
+        "CONTRACT_SIGNING",
+        "Married applicant file indicates missing spouse/co-owner signature evidence for shared property handling.",
+        { summary: "Prompt signals missing spouse/co-owner signature evidence.", clauseId: "Clause-Marital-Property" },
+        "Collect valid spouse/co-owner signature or legal property authorization before contract signing."
+      );
+    } else {
+      addFinding(
+        "LEGAL_MARITAL_PROPERTY_WARNING",
+        "CONDITIONAL_PASS",
+        "CONDITION",
+        "CONTRACT_SIGNING",
+        "Applicant is married; marital-property confirmation is required before contract signing.",
+        { summary: "Married applicant requires marital-property documentation checkpoint.", clauseId: "Clause-Marital-Property" },
+        "Confirm marital-property consent/signature scope before contract signing."
+      );
+    }
+  }
+
+  if (input.propertyStatus === "future_project") {
+    if (input.projectCode && hasProductionGuarantee(projectGuarantee)) {
+      addFinding(
+        "LEGAL_FUTURE_PROPERTY_GUARANTEE",
+        "CONDITIONAL_PASS",
+        "CONDITION",
+        "DISBURSEMENT",
+        "Future-project collateral has guarantee evidence, but it must remain verified before disbursement.",
+        {
+          summary: `Project ${input.projectCode} has guarantee evidence ${projectGuarantee?.guaranteeContractNo ?? "UNKNOWN"}.`,
+          clauseId: "Clause-Future-Property",
+          projectCode: input.projectCode,
+          verificationStatus: projectGuarantee?.verificationStatus,
+        },
+        "Reconfirm project guarantee evidence before disbursement."
+      );
+    } else {
+      addFinding(
+        "LEGAL_PROJECT_NOT_REGISTERED",
+        "BLOCKED",
+        "BLOCKER",
+        "DISBURSEMENT",
+        "Future-project collateral does not have verified production-grade guarantee evidence.",
+        {
+          summary: input.projectCode
+            ? `No verified production-grade guarantee evidence was found for project ${input.projectCode}.`
+            : "Future-project collateral is missing projectCode, so guarantee evidence cannot be verified.",
+          clauseId: "Clause-Future-Property",
+          projectCode: input.projectCode,
+          verificationStatus: projectGuarantee?.verificationStatus ?? "NOT_FOUND",
+        },
+        "Provide verified project guarantee evidence before disbursement."
+      );
+    }
+  }
+
+  if (!input.consent.credit_check || !input.consent.tax_income_check) {
+    addFinding(
+      "LEGAL_CONSENT_MISSING",
+      "BLOCKED",
+      "BLOCKER",
+      "EXTERNAL_DATA_CALL",
+      "Required customer consent for credit or income verification is missing.",
+      {
+        summary: "External credit/income checks require explicit customer consent.",
+        clauseId: "Clause-Personal-Data-Consent",
+        credit_check: input.consent.credit_check,
+        tax_income_check: input.consent.tax_income_check,
+      },
+      "Collect valid consent for credit and income verification before any external data call."
+    );
+  }
+
+  return findings;
+};
+
+interface LegalFallbackDependencies {
+  queryRegulationClause?: (clauseId: string) => Promise<RegulationClauseDetails | null>;
+  queryProjectGuarantee?: (projectCode: string) => Promise<ProjectPolicyDetails | null>;
+}
+
+export const runDeterministicLegalFallback = async (
+  input: LegalReasoningInput,
+  providerError: NormalizedLlmProviderError,
+  dependencies: LegalFallbackDependencies = {}
+): Promise<LegalReasoningResult> => {
+  const toolCalls: ToolCallTrace[] = [];
+  const clauseIds = new Set<string>();
+  if (input.hasInsuranceTyingSignal) clauseIds.add("Clause-Insurance-Tying");
+  if (input.maritalStatus === "married") clauseIds.add("Clause-Marital-Property");
+  if (input.propertyStatus === "future_project") clauseIds.add("Clause-Future-Property");
+  if (!input.consent.credit_check || !input.consent.tax_income_check) clauseIds.add("Clause-Personal-Data-Consent");
+
+  const clauseQuery = dependencies.queryRegulationClause ?? queryRegulationClause;
+  for (const clauseId of clauseIds) {
+    try {
+      const clause = await clauseQuery(clauseId);
+      toolCalls.push({
+        toolName: "get_regulation_clause",
+        input: { clauseId },
+        output: clause ? { clauseId, found: true, sourceVerificationStatus: clause.sourceVerificationStatus } : { clauseId, found: false },
+        status: "success",
+      });
+    } catch (error) {
+      toolCalls.push({
+        toolName: "get_regulation_clause",
+        input: { clauseId },
+        output: { clauseId, error: error instanceof Error ? error.message : "unknown clause lookup error" },
+        status: "failed",
+      });
+    }
+  }
+
+  let projectGuarantee: ProjectPolicyDetails | null = null;
+  if (input.propertyStatus === "future_project" && input.projectCode) {
+    const projectQuery = dependencies.queryProjectGuarantee ?? queryProjectGuarantee;
+    try {
+      projectGuarantee = await projectQuery(input.projectCode);
+      toolCalls.push({
+        toolName: "get_project_guarantee_status",
+        input: { projectCode: input.projectCode },
+        output: projectGuarantee
+          ? {
+            projectCode: input.projectCode,
+            found: true,
+            isGuaranteedBySHB: projectGuarantee.isGuaranteedBySHB,
+            verificationStatus: projectGuarantee.verificationStatus,
+          }
+          : { projectCode: input.projectCode, found: false },
+        status: "success",
+      });
+    } catch (error) {
+      toolCalls.push({
+        toolName: "get_project_guarantee_status",
+        input: { projectCode: input.projectCode },
+        output: { projectCode: input.projectCode, error: error instanceof Error ? error.message : "unknown project lookup error" },
+        status: "failed",
+      });
+    }
+  }
+
+  const findings = buildDeterministicLegalFindings(input, projectGuarantee);
+  toolCalls.unshift({
+    toolName: "legalDeterministicFallback",
+    input: {
+      reason: providerError.code,
+      providerModel: providerError.model ?? config.fptLegalModel,
+      requestId: providerError.requestId,
+    },
+    output: {
+      reason: providerError.message,
+      providerModel: providerError.model ?? config.fptLegalModel,
+      findingsCount: findings.length,
+    },
+    status: "success",
+  });
+
+  return {
+    findings,
+    toolCalls,
+    mode: "deterministic_fallback",
+    providerError,
+  };
+};
+
 /**
  * Runs the Legal & Compliance Agent's RAG-backed reasoning through the OpenAI API:
  * the model decides which regulation/project lookups apply to this case (grounded via
@@ -238,12 +461,24 @@ export const runLegalComplianceReasoning = async (
   ];
 
   for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
-    const response = await client.chat.completions.create({
-      model: config.fptLegalModel,
-      messages,
-      tools: TOOLS,
-      tool_choice: "auto",
-    });
+    let response;
+    try {
+      response = await client.chat.completions.create({
+        model: config.fptLegalModel,
+        messages,
+        tools: TOOLS,
+        tool_choice: "auto",
+      });
+    } catch (error) {
+      const normalized = normalizeLlmProviderError(error, {
+        model: config.fptLegalModel,
+        operation: "legalComplianceReasoning",
+      });
+      if (isToolCallRejectedByProvider(normalized)) {
+        return runDeterministicLegalFallback(reasoningInput, normalized);
+      }
+      throw error;
+    }
 
     const choice = response.choices[0];
     const message = choice.message;
@@ -273,8 +508,13 @@ export const runLegalComplianceReasoning = async (
         messages.push(toolResultMessage);
       }
     } else {
-      // The model returned text without a tool call. It should have used submit_findings.
-      throw new Error("Legal reasoning: model returned text instead of calling submit_findings tool.");
+      const normalized: NormalizedLlmProviderError = {
+        code: "MODEL_TOOL_CALL_UNSUPPORTED_OR_REJECTED",
+        model: config.fptLegalModel,
+        message: `legalComplianceReasoning: model ${config.fptLegalModel} returned text instead of calling submit_findings.`,
+        rawMessage: "Legal reasoning: model returned text instead of calling submit_findings tool.",
+      };
+      return runDeterministicLegalFallback(reasoningInput, normalized);
     }
   }
 

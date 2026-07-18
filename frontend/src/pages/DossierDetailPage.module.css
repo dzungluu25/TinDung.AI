@@ -115,6 +115,37 @@
 }
 .cicForm button { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; }
 
+.uploadForm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.uploadFormGrid {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr);
+  gap: 10px;
+}
+.uploadFormGrid label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--color-text-muted);
+  font-size: 10.5px;
+  font-weight: 650;
+}
+.uploadFormGrid select,
+.uploadFormGrid input {
+  padding: 7px 9px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 12px;
+}
+.uploadForm button { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; }
+@media (max-width: 640px) { .uploadFormGrid { grid-template-columns: 1fr; } }
+
 .commentBox {
   width: 100%;
   padding: 10px;
@@ -132,3 +163,36 @@
 .decisionList { display: flex; flex-direction: column; gap: 10px; list-style: none; }
 .decisionMeta { margin-left: 8px; color: var(--color-text-faint); font-size: 10px; }
 .decisionComment { margin-top: 4px; color: var(--color-text-muted); font-size: 11.5px; }
+.auditList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  list-style: none;
+}
+.auditList li {
+  padding: 10px 12px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-alt);
+}
+.auditList strong {
+  display: block;
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.auditList small {
+  display: block;
+  margin-top: 3px;
+  color: var(--color-text-faint);
+  font-size: 10px;
+}
+.auditList p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 11px;
+}

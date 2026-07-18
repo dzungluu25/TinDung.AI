@@ -15,6 +15,10 @@
 .traceMarker { position: relative; z-index: 1; width: 21px; height: 21px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: 1px solid var(--color-border); border-radius: 50%; color: var(--color-text-faint); background: white; }
 .traceList .done .traceMarker { border-color: rgba(21,128,61,.25); color: var(--color-success); background: var(--color-success-soft); }
 .traceList .in_progress .traceMarker { border-color: rgba(37,99,235,.28); color: var(--color-info); background: var(--color-info-soft); }
+.traceList .skipped .traceMarker { color: var(--color-text-faint); background: var(--color-neutral-soft); }
+.traceList .degraded .traceMarker { border-color: rgba(180,83,9,.28); color: var(--color-warning); background: var(--color-warning-soft); }
+.traceList .failed .traceMarker,
+.traceList .blocked .traceMarker { border-color: rgba(185,28,28,.28); color: var(--color-danger); background: var(--color-danger-soft); }
 .traceList .in_progress svg { animation: trace-spin 1s linear infinite; }
 @keyframes trace-spin { to { transform: rotate(360deg); } }
 .traceList li > div { min-width: 0; flex: 1; }
@@ -23,6 +27,8 @@
 .traceStepHeader small { color: var(--color-text-faint); font-size: 8.5px; }
 .traceList p { margin: 3px 0 0; color: var(--color-text-muted); font-size: 9.5px; line-height: 1.5; }
 .traceConclusion { margin-top: 3px; padding: 11px 12px; border-left: 3px solid var(--color-brand); border-radius: 0 9px 9px 0; background: var(--color-brand-soft); }
+.traceConclusionFailed { border-left-color: var(--color-danger); background: var(--color-danger-soft); }
+.traceConclusionFailed strong { color: var(--color-danger); }
 .traceConclusion strong { font-size: 9.5px; }
 .traceConclusion p { margin: 4px 0 0; color: var(--color-text-muted); font-size: 10px; line-height: 1.55; }
 .claimsBlock { margin-top: 15px; padding-top: 14px; border-top: 1px solid rgba(23,110,89,.12); }

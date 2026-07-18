@@ -1,4 +1,4 @@
-import { AgentRole, AgentStatus } from "./agent.types";
+import type { AgentRole, AgentStatus } from "./agent.types";
 
 export interface ToolCallTrace {
   toolName: string;
@@ -11,8 +11,11 @@ export interface AgentTrace {
   id: string;
   runId: string;
   agent: AgentRole;
+  stage?: string;
   task: string;
   status: AgentStatus;
+  executionStatus?: "completed" | "skipped_by_policy" | "degraded" | "terminal_failure";
+  statusReason?: string;
   summary: string;
   toolCalls: ToolCallTrace[];
   startedAt: string;

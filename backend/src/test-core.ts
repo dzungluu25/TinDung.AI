@@ -13,6 +13,12 @@ import { assessDecisionConfidence } from "./services/governance/decision-confide
 import { getKnowledgeGraphCatalog, validateKnowledgeGraphCatalog } from "./services/data/knowledge-graph-seed.service";
 import { routeOrExtractInput, screenInput } from "./services/orchestration/input-router.service";
 import { detectPromptInjection } from "./services/governance/input-security.service";
+import {
+  buildDeterministicLegalFindings,
+  runDeterministicLegalFallback,
+  type LegalReasoningInput,
+} from "./services/rag/legal-reasoning.service";
+import { normalizeLlmProviderError } from "./services/llm/provider-error.service";
 
 // Local fixtures for deterministic rule-engine unit tests only — not the demo case
 // catalog (that no longer exists; real cases come from case-extraction.service.ts).
@@ -147,6 +153,65 @@ const testRouting = async () => {
   if (!invalidWithExplicitCase.ok) assert.equal(invalidWithExplicitCase.code, "INVALID_INPUT");
 };
 
+const legalInput = (overrides: Partial<LegalReasoningInput> = {}): LegalReasoningInput => ({
+  maritalStatus: "single",
+  hasInsuranceTyingSignal: false,
+  propertyStatus: "completed",
+  projectCode: null,
+  consent: { credit_check: true, tax_income_check: true, social_insurance_check: true, marketing: false },
+  maritalSignatureWarning: false,
+  ...overrides,
+});
+
+const testLegalFallback = async () => {
+  assert.deepEqual(
+    buildDeterministicLegalFindings(legalInput()),
+    [],
+    "Clean single/completed/consented case must not produce legal fallback findings"
+  );
+
+  const missingConsent = buildDeterministicLegalFindings(legalInput({
+    consent: { credit_check: false, tax_income_check: true, social_insurance_check: true, marketing: false },
+  }));
+  assert.equal(missingConsent[0].ruleIds[0], "LEGAL_CONSENT_MISSING");
+  assert.equal(missingConsent[0].blocksAt, "EXTERNAL_DATA_CALL");
+
+  const marriedWarning = buildDeterministicLegalFindings(legalInput({ maritalStatus: "married" }));
+  assert.equal(marriedWarning[0].ruleIds[0], "LEGAL_MARITAL_PROPERTY_WARNING");
+  assert.equal(marriedWarning[0].severity, "CONDITION");
+
+  const missingSignature = buildDeterministicLegalFindings(legalInput({
+    maritalStatus: "married",
+    maritalSignatureWarning: true,
+  }));
+  assert.equal(missingSignature[0].ruleIds[0], "LEGAL_MARITAL_SIGNATURE_MISSING");
+  assert.equal(missingSignature[0].severity, "BLOCKER");
+
+  const missingProjectGuarantee = buildDeterministicLegalFindings(legalInput({
+    propertyStatus: "future_project",
+    projectCode: "PROJECT-NOT-VERIFIED",
+  }));
+  assert.equal(missingProjectGuarantee[0].ruleIds[0], "LEGAL_PROJECT_NOT_REGISTERED");
+  assert.equal(missingProjectGuarantee[0].status, "BLOCKED");
+
+  const providerError = normalizeLlmProviderError({
+    status: 400,
+    message: "400 status code (no body)",
+    requestID: "req-legal-400",
+    headers: { get: (key: string) => key === "x-model" ? "GLM-5.1" : null },
+  }, { model: "GLM-5.1", operation: "legalComplianceReasoning" });
+  assert.equal(providerError.code, "MODEL_TOOL_CALL_UNSUPPORTED_OR_REJECTED");
+
+  const fallback = await runDeterministicLegalFallback(legalInput(), providerError, {
+    queryRegulationClause: async () => null,
+    queryProjectGuarantee: async () => null,
+  });
+  assert.equal(fallback.mode, "deterministic_fallback");
+  assert.equal(fallback.findings.length, 0);
+  assert.equal(fallback.toolCalls[0].toolName, "legalDeterministicFallback");
+  assert.equal(fallback.toolCalls[0].status, "success");
+};
+
 const untrustedLegalFinding: DecisionEnvelope = {
   decisionId: "dec-legal-test-1",
   agent: "legal",
@@ -228,6 +293,7 @@ assert.equal(abstained.status, "NEEDS_REVIEW", "A failed tool call must prevent 
 assert.ok(abstained.reasons.includes("TOOL_FAILURE:credit"));
 
 testRouting()
+  .then(() => testLegalFallback())
   .then(() => {
     console.log("AI core checks passed: routing, versioned policy, confidence abstention, citation grounding, affordability and profitability.");
   })

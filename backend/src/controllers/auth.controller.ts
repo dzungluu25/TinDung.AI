@@ -4,8 +4,34 @@ import { signAccessToken, ACCESS_TOKEN_TTL_SECONDS } from "../config/auth";
 import { recordAuditEvent } from "../services/governance/audit-log.service";
 import { config } from "../config/env";
 import { resolveLoginRole } from "../services/auth/authorization.service";
+import type { UserRole } from "../config/authorization";
 
 const AUTH_RUN_ID = "auth-session";
+const TENANT_ID = "bank-default";
+
+const auditAuthEvent = async (
+  actor: string,
+  payload: Record<string, unknown>,
+  details: string,
+  status: "allowed" | "blocked" = "allowed"
+): Promise<void> => {
+  await recordAuditEvent(AUTH_RUN_ID, actor, "human_approval", payload, status, details);
+};
+
+const issueSessionResponse = (
+  res: Response,
+  username: string,
+  role: UserRole,
+  tenantId = TENANT_ID
+) => {
+  const accessToken = signAccessToken({ sub: username, role, tenantId });
+  return res.status(200).json({
+    accessToken,
+    role,
+    expiresIn: ACCESS_TOKEN_TTL_SECONDS,
+    tenantId,
+  });
+};
 
 export const login = async (req: Request, res: Response) => {
   try {
@@ -16,57 +42,35 @@ export const login = async (req: Request, res: Response) => {
 
     const user = verifyCredentials(username, password);
     if (!user) {
-      await recordAuditEvent(
-        AUTH_RUN_ID,
-        username,
-        "human_approval",
-        {},
-        "blocked",
-        `Đăng nhập thất bại cho tài khoản: ${username}.`
-      );
+      await auditAuthEvent(username, {}, `Login failed for account: ${username}.`, "blocked");
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    const tenantId = "bank-default";
-    const role = await resolveLoginRole(tenantId, user.username, user.role);
+    const role = await resolveLoginRole(TENANT_ID, user.username, user.role);
     if (!role) return res.status(403).json({ error: "AUTHORIZATION_PROFILE_NOT_ACTIVE" });
-    const accessToken = signAccessToken({ sub: user.username, role, tenantId });
-    await recordAuditEvent(
-      AUTH_RUN_ID,
-      user.username,
-      "human_approval",
-      { role },
-      "allowed",
-      `Đăng nhập thành công: ${user.username} (${role}).`
-    );
 
-    return res.status(200).json({
-      accessToken,
-      role,
-      expiresIn: ACCESS_TOKEN_TTL_SECONDS,
-      tenantId,
-    });
+    await auditAuthEvent(user.username, { role }, `Login succeeded: ${user.username} (${role}).`);
+    return issueSessionResponse(res, user.username, role);
   } catch (error) {
     console.error("Login error:", error);
     return res.status(500).json({ error: "Internal server error during login" });
   }
 };
 
-/**
- * Creates a short-lived, officer-scoped session for the public hackathon demo.
- * It is enabled by default only outside production; production must opt in explicitly.
- * This keeps orchestration endpoints authenticated without exposing credentials in the UI.
- */
-export const createDemoSession = async (_req: Request, res: Response) => {
+const createPublicDemoSession = async (
+  res: Response,
+  username: string,
+  preferredRole: UserRole,
+  unavailableMessage: string
+) => {
   if (!config.publicDemoSession) {
     return res.status(404).json({ error: "Demo session is not available" });
   }
 
-  const username = "demo.officer";
-  const tenantId = "bank-default";
-  const role = await resolveLoginRole(tenantId, username, "CREDIT_OFFICER");
-  if (role !== "CREDIT_OFFICER") return res.status(404).json({ error: "Demo session is not available" });
-  const accessToken = signAccessToken({ sub: username, role, tenantId });
+  const role = await resolveLoginRole(TENANT_ID, username, preferredRole);
+  if (role !== preferredRole) {
+    return res.status(503).json({ error: unavailableMessage });
+  }
 
   await recordAuditEvent(
     AUTH_RUN_ID,
@@ -74,36 +78,43 @@ export const createDemoSession = async (_req: Request, res: Response) => {
     "agent_call",
     { role, mode: "public-demo" },
     "allowed",
-    "Khởi tạo phiên truy cập giới hạn cho giao diện hackathon demo."
+    `Created public-demo session for ${username} (${role}).`
   );
 
-  return res.status(200).json({ accessToken, role, tenantId, expiresIn: ACCESS_TOKEN_TTL_SECONDS });
+  return issueSessionResponse(res, username, role);
 };
 
 /**
- * Creates a short-lived, approver-scoped session for the public hackathon demo's policy
- * console. Same gating as createDemoSession — no password, disabled in production — but
- * grants CREDIT_APPROVER so the demo can exercise tenant policy read/write without a real login.
+ * Creates a short-lived, officer-scoped session for the public hackathon demo.
+ * Every error is converted to JSON so the browser never sees ERR_EMPTY_RESPONSE.
+ */
+export const createDemoSession = async (_req: Request, res: Response) => {
+  try {
+    return await createPublicDemoSession(
+      res,
+      "demo.officer",
+      "CREDIT_OFFICER",
+      "Demo officer authorization profile is not ready"
+    );
+  } catch (error) {
+    console.error("Demo session error:", error);
+    return res.status(500).json({ error: "Internal server error during demo session creation" });
+  }
+};
+
+/**
+ * Creates a short-lived, approver-scoped session for the public hackathon demo.
  */
 export const createDemoApproverSession = async (_req: Request, res: Response) => {
-  if (!config.publicDemoSession) {
-    return res.status(404).json({ error: "Demo session is not available" });
+  try {
+    return await createPublicDemoSession(
+      res,
+      "demo.approver",
+      "CREDIT_APPROVER",
+      "Demo approver authorization profile is not ready"
+    );
+  } catch (error) {
+    console.error("Demo approver session error:", error);
+    return res.status(500).json({ error: "Internal server error during demo approver session creation" });
   }
-
-  const username = "demo.approver";
-  const tenantId = "bank-default";
-  const role = await resolveLoginRole(tenantId, username, "CREDIT_APPROVER");
-  if (role !== "CREDIT_APPROVER") return res.status(404).json({ error: "Demo session is not available" });
-  const accessToken = signAccessToken({ sub: username, role, tenantId });
-
-  await recordAuditEvent(
-    AUTH_RUN_ID,
-    username,
-    "agent_call",
-    { role, mode: "public-demo" },
-    "allowed",
-    "Khởi tạo phiên truy cập cấu hình chính sách cho giao diện hackathon demo."
-  );
-
-  return res.status(200).json({ accessToken, role, tenantId, expiresIn: ACCESS_TOKEN_TTL_SECONDS });
 };

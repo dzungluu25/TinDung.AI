@@ -2,7 +2,7 @@ import { create } from "zustand";
 import type { AgentRole, AgentTrace, OrchestrationResponse, OrchestrationStreamEvent, RiskTier } from "../types/api";
 import { deriveStepKey, stepTemplateForRiskTier, STEP_AGENT, STEP_LABELS, type StepKey } from "../utils/parseAgentState";
 
-export type StepStatus = "pending" | "in_progress" | "done" | "skipped";
+export type StepStatus = "pending" | "in_progress" | "done" | "skipped" | "degraded" | "failed" | "blocked";
 
 export interface PipelineStep {
   key: StepKey;
@@ -51,6 +51,30 @@ const buildStep = (key: StepKey, status: StepStatus): PipelineStep => ({
   status,
 });
 
+const insertAfter = (items: StepKey[], anchor: StepKey, key: StepKey): StepKey[] => {
+  if (items.includes(key)) return items;
+  const anchorIndex = items.indexOf(anchor);
+  const insertAt = anchorIndex === -1 ? items.length : anchorIndex + 1;
+  return [...items.slice(0, insertAt), key, ...items.slice(insertAt)];
+};
+
+const expandTemplate = (riskTier: RiskTier | undefined, existing: Map<StepKey, PipelineStep>): StepKey[] => {
+  let template = stepTemplateForRiskTier(riskTier);
+  if (existing.has("auto_policy")) template = insertAfter(template, "fraud", "auto_policy");
+  if (existing.has("self-correction")) template = insertAfter(template, "legal", "self-correction");
+  return template;
+};
+
+const processedStatusForTrace = (trace: AgentTrace): StepStatus => {
+  if (trace.executionStatus === "skipped_by_policy") return "skipped";
+  if (trace.executionStatus === "degraded") return "degraded";
+  if (trace.executionStatus === "terminal_failure" || trace.status === "failed" || trace.status === "blocked") return "failed";
+  return "done";
+};
+
+const isUnfinished = (step: PipelineStep): boolean =>
+  step.status === "pending" || step.status === "in_progress";
+
 export const useOrchestrationStore = create<OrchestrationStoreState>()((set, get) => ({
   phase: "idle",
   prompt: "",
@@ -78,41 +102,49 @@ export const useOrchestrationStore = create<OrchestrationStoreState>()((set, get
       set({ runId: state.runId ?? event.runId });
       return;
     }
+
     if (event.type === "terminal") {
-      const statusMessages: Record<string, string> = {
-        failed: "Quy trình thẩm định bị lỗi trong quá trình xử lý. Vui lòng kiểm tra lại dữ liệu hồ sơ và thử lại.",
-        manual_intervention_required: "Hồ sơ yêu cầu kiểm duyệt thủ công từ cấp phê duyệt trước khi tiếp tục.",
-      };
-      if (event.status === "failed" || event.status === "manual_intervention_required") {
-        set({ phase: "error", runId: event.runId, error: statusMessages[event.status] ?? event.status });
-      }
+      // The final event carries the user-facing business outcome. A fail-closed
+      // terminal status is expected for blocked required stages and should not hide
+      // the response behind a generic transport-error screen.
+      set({ runId: state.runId ?? event.runId });
       return;
     }
 
     if (event.type === "node_update") {
       let steps = state.steps;
-      const riskTier = state.riskTier ?? event.riskTier;
+      const riskTier = event.riskTier ?? state.riskTier;
+
       if (steps.length === 0) {
         steps = stepTemplateForRiskTier(riskTier).map((key, idx) => buildStep(key, idx === 0 ? "in_progress" : "pending"));
+      } else if (riskTier && state.riskTier && riskTier !== state.riskTier) {
+        const existing = new Map(steps.map(step => [step.key, step]));
+        steps = expandTemplate(riskTier, existing).map(key => existing.get(key) ?? buildStep(key, "pending"));
       }
 
       const stepKey = deriveStepKey(event.trace);
       let idx = steps.findIndex(s => s.key === stepKey);
+
       if (idx === -1) {
-        // Self-correction re-pricing loop isn't in the static template — splice it in right after "legal".
-        const legalIdx = steps.findIndex(s => s.key === "legal");
-        const insertAt = legalIdx === -1 ? steps.length : legalIdx + 1;
+        const anchorByStep: Partial<Record<StepKey, StepKey>> = {
+          "self-correction": "legal",
+          auto_policy: "fraud",
+          legal: "auto_policy",
+          human_approval: "risk",
+          operations: "human_approval",
+        };
+        const anchor = anchorByStep[stepKey];
+        const anchorIdx = anchor ? steps.findIndex(s => s.key === anchor) : -1;
+        const insertAt = anchorIdx === -1 ? steps.length : anchorIdx + 1;
         steps = [...steps.slice(0, insertAt), buildStep(stepKey, "pending"), ...steps.slice(insertAt)];
         idx = insertAt;
       }
 
-      // The only path that stops the graph before the last template step is the
-      // prompt-injection block at the very first (classify/planner) node — every other
-      // agent status (blocked/failed included) still hands off to the next real stage.
-      const isTerminalBlock = idx === 0 && stepKey === "planner" && event.trace.status !== "completed";
+      const completedStatus = processedStatusForTrace(event.trace);
+      const isTerminalBlock = completedStatus === "failed";
 
       steps = steps.map((s, i) => {
-        if (i === idx) return { ...s, status: "done", trace: event.trace };
+        if (i === idx) return { ...s, status: completedStatus, trace: event.trace };
         if (!isTerminalBlock && i === idx + 1 && s.status === "pending") return { ...s, status: "in_progress" };
         return s;
       });
@@ -122,7 +154,8 @@ export const useOrchestrationStore = create<OrchestrationStoreState>()((set, get
     }
 
     if (event.type === "final") {
-      const steps = state.steps.map(s => (s.status === "pending" || s.status === "in_progress" ? { ...s, status: "skipped" as StepStatus } : s));
+      const unfinishedStatus: StepStatus = event.response.terminalFailure ? "blocked" : "skipped";
+      const steps = state.steps.map(s => (isUnfinished(s) ? { ...s, status: unfinishedStatus } : s));
       const completedAt = Date.now();
       const durationMs = state.startedAt ? completedAt - state.startedAt : 0;
       const toolCallCount = event.response.traces.reduce((sum, t) => sum + t.toolCalls.length, 0);
@@ -142,15 +175,13 @@ export const useOrchestrationStore = create<OrchestrationStoreState>()((set, get
         phase: "done",
         steps,
         response: event.response,
+        error: undefined,
         history: [metrics, ...state.history].slice(0, 20),
       });
       return;
     }
 
     if (event.type === "advisory_final") {
-      // No LangGraph run happened — build the fixed template directly with "planner"
-      // done and every other stage skipped, instead of replaying node_update events
-      // for a pipeline that never executed.
       const template = stepTemplateForRiskTier(state.riskTier);
       const steps = template.map((key, idx) =>
         idx === 0 ? { ...buildStep(key, "done" as StepStatus), trace: event.response.plannerTrace } : buildStep(key, "skipped" as StepStatus)
@@ -175,12 +206,12 @@ export const useOrchestrationStore = create<OrchestrationStoreState>()((set, get
         runId: event.response.runId,
         advisoryMode: event.response.mode,
         advisoryFinalAnswer: event.response.finalAnswer,
+        error: undefined,
         history: [metrics, ...state.history].slice(0, 20),
       });
       return;
     }
 
-    // event.type === "error"
     set({ phase: "error", error: event.message });
   },
 

@@ -1,5 +1,6 @@
 import { apiFetch, apiFetchMultipart } from "./httpClient";
-import type { CustomerDossierSummary, DossierCicReport, DossierDetail, DossierReviewDecisionRecord, DossierStatus, LoanDossier, LoanType, ReviewDecision } from "../types/document-intake";
+import type { AuditEvent } from "../types/api";
+import type { CustomerDossierSummary, DossierCicReport, DossierDetail, DossierDocumentWithOcr, DossierReviewDecisionRecord, DossierStatus, LoanDossier, LoanType, ReviewDecision } from "../types/document-intake";
 
 export interface ListDossiersFilter {
   status?: DossierStatus;
@@ -31,6 +32,33 @@ export interface CicReportFormInput {
   file?: File;
 }
 
+export interface DocumentUploadFormInput {
+  documentType: string;
+  file: File;
+}
+
+type UploadedDossierDocument = Omit<DossierDocumentWithOcr, "ocrResult">;
+
+export interface DocumentUploadResponse {
+  dossier: LoanDossier;
+  document: UploadedDossierDocument;
+  checklistItem: { documentType: string; displayName: string };
+  formResult: { passed: boolean; reason?: string };
+  ocrResult: DossierDocumentWithOcr["ocrResult"];
+}
+
+/** Customer/officer upload - this path triggers form validation and OCR. */
+export const uploadDossierDocument = (
+  token: string,
+  dossierId: string,
+  input: DocumentUploadFormInput
+): Promise<DocumentUploadResponse> => {
+  const formData = new FormData();
+  formData.set("documentType", input.documentType);
+  formData.set("file", input.file);
+  return apiFetchMultipart(`/api/dossiers/${dossierId}/documents`, formData, token);
+};
+
 /** Staff-only — separate endpoint from document upload, no document_type, never OCR'd. */
 export const submitCicReport = (token: string, dossierId: string, input: CicReportFormInput): Promise<DossierCicReport> => {
   const formData = new FormData();
@@ -57,3 +85,6 @@ export const reassignDossier = (
   targetOfficerId: string
 ): Promise<{ dossierId: string; assignedOfficer: string; assignedAt: string }> =>
   apiFetch(`/api/dossiers/${dossierId}/reassign`, { method: "POST", token, body: { targetOfficerId } });
+
+export const getDossierAudit = (token: string, dossierId: string): Promise<{ events: AuditEvent[] }> =>
+  apiFetch<{ events: AuditEvent[] }>(`/api/dossiers/${encodeURIComponent(dossierId)}/audit`, { token });

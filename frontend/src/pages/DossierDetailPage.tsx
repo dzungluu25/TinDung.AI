@@ -6,7 +6,7 @@ import { Card } from "../components/Card";
 import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
 import { Skeleton } from "../components/Skeleton";
-import { getDossierDetail, reassignDossier, submitCicReport, submitReviewDecision } from "../services/dossierService";
+import { getDossierAudit, getDossierDetail, reassignDossier, submitCicReport, submitReviewDecision, uploadDossierDocument } from "../services/dossierService";
 import { useSessionStore } from "../store/sessionStore";
 import { ApiError } from "../services/httpClient";
 import {
@@ -15,6 +15,8 @@ import {
 } from "../features/dossier/dossierStatus";
 import { isCustomerDossierSummary, type DossierDetail, type ReviewDecision } from "../types/document-intake";
 import styles from "./DossierDetailPage.module.css";
+
+const AUDIT_ROLES = new Set(["CREDIT_APPROVER", "ADMIN", "AUDITOR"]);
 
 export const DossierDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -27,12 +29,18 @@ export const DossierDetailPage = () => {
   const [detail, setDetail] = useState<DossierDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [auditEvents, setAuditEvents] = useState<Array<{ eventId: string; timestamp: string; actor: string; actionType: string; status: string; details: string }>>([]);
+  const [auditError, setAuditError] = useState<string | null>(null);
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState<ReviewDecision | null>(null);
   const [cicForm, setCicForm] = useState({ creditScore: "", totalOutstandingDebt: "", debtGroup: "", reportDate: "", notes: "" });
   const [cicFile, setCicFile] = useState<File | null>(null);
   const [cicSubmitting, setCicSubmitting] = useState(false);
   const [cicError, setCicError] = useState<string | null>(null);
+  const [documentType, setDocumentType] = useState("");
+  const [documentFile, setDocumentFile] = useState<File | null>(null);
+  const [documentUploading, setDocumentUploading] = useState(false);
+  const [documentUploadError, setDocumentUploadError] = useState<string | null>(null);
   const [targetOfficerId, setTargetOfficerId] = useState("");
   const [reassigning, setReassigning] = useState(false);
 
@@ -43,12 +51,25 @@ export const DossierDetailPage = () => {
     try {
       const token = await getAccessToken();
       setDetail(await getDossierDetail(token, id));
+      if (role && AUDIT_ROLES.has(role)) {
+        try {
+          const audit = await getDossierAudit(token, id);
+          setAuditEvents(audit.events);
+          setAuditError(null);
+        } catch (err) {
+          setAuditEvents([]);
+          setAuditError(err instanceof ApiError ? err.message : "Khong tai duoc audit log.");
+        }
+      } else {
+        setAuditEvents([]);
+        setAuditError(null);
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Không tải được chi tiết hồ sơ.");
     } finally {
       setLoading(false);
     }
-  }, [getAccessToken, id]);
+  }, [getAccessToken, id, role]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -83,6 +104,25 @@ export const DossierDetailPage = () => {
       setCicError(err instanceof ApiError ? err.message : "Không thể lưu CIC.");
     } finally {
       setCicSubmitting(false);
+    }
+  };
+
+  const submitDocumentUpload = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!id || !documentType || !documentFile) return;
+    setDocumentUploading(true);
+    setDocumentUploadError(null);
+    try {
+      const token = await getAccessToken();
+      await uploadDossierDocument(token, id, { documentType, file: documentFile });
+      setDocumentType("");
+      setDocumentFile(null);
+      await load();
+    } catch (err) {
+      setDocumentUploadError(err instanceof ApiError ? err.message : "KhÃ´ng thá»ƒ táº£i lÃªn giáº¥y tá».");
+      await load();
+    } finally {
+      setDocumentUploading(false);
     }
   };
 
@@ -141,6 +181,11 @@ export const DossierDetailPage = () => {
   }
   const { dossier, documents, completeness, cicReport, scoring, assignedOfficer, reviewDecisions } = detail;
   const dossierFinalized = dossier.status === "APPROVED" || dossier.status === "REJECTED";
+  const uploadAllowedStatuses = new Set(["COLLECTING", "INCOMPLETE", "NEEDS_MORE_INFO"]);
+  const canUploadDocuments = uploadAllowedStatuses.has(dossier.status) && (activeRole === "CUSTOMER" || activeRole === "CREDIT_OFFICER");
+  const uploadOptions = completeness.missingDocumentTypes.length > 0
+    ? completeness.missingDocumentTypes
+    : Array.from(new Map(documents.map(doc => [doc.documentType, { documentType: doc.documentType, displayName: documentTypeLabel[doc.documentType] ?? doc.documentType }])).values());
 
   return (
     <>
@@ -245,6 +290,30 @@ export const DossierDetailPage = () => {
         ) : null}
       </Card>
 
+      {canUploadDocuments ? (
+        <Card title="OCR giấy tờ khách hàng" action={<Upload size={16} />} className={styles.documentsCard}>
+          <form className={styles.uploadForm} onSubmit={submitDocumentUpload}>
+            <div className={styles.uploadFormGrid}>
+              <label>Loại giấy tờ
+                <select required value={documentType} onChange={event => setDocumentType(event.target.value)}>
+                  <option value="">Chọn giấy tờ cần OCR</option>
+                  {uploadOptions.map(item => (
+                    <option key={item.documentType} value={item.documentType}>{item.displayName}</option>
+                  ))}
+                </select>
+              </label>
+              <label>File
+                <input required type="file" accept="application/pdf,image/bmp,image/jpeg,image/png,image/tiff,image/webp" onChange={event => setDocumentFile(event.target.files?.[0] ?? null)} />
+              </label>
+            </div>
+            {documentUploadError ? <p className={styles.error}>{documentUploadError}</p> : null}
+            <Button type="submit" variant="secondary" isLoading={documentUploading} disabled={documentUploading || !documentType || !documentFile}>
+              <Upload size={15} /> Tải lên và chạy OCR
+            </Button>
+          </form>
+        </Card>
+      ) : null}
+
       <Card title={`Giấy tờ đã nộp (${documents.length})`} className={styles.documentsCard}>
         {documents.length === 0 ? (
           <p className={styles.empty}>Chưa có giấy tờ nào được tải lên.</p>
@@ -314,6 +383,28 @@ export const DossierDetailPage = () => {
               </li>
             ))}
           </ul>
+        </Card>
+      ) : null}
+
+      {role && AUDIT_ROLES.has(role) ? (
+        <Card title="Audit log hồ sơ" className={styles.documentsCard}>
+          {auditError ? <p className={styles.error}>{auditError}</p> : null}
+          {auditEvents.length === 0 && !auditError ? (
+            <p className={styles.empty}>Chưa có sự kiện audit nào cho hồ sơ này.</p>
+          ) : (
+            <ul className={styles.auditList}>
+              {auditEvents.map(event => (
+                <li key={event.eventId}>
+                  <span>
+                    <strong>{event.actionType}</strong>
+                    <small>{new Date(event.timestamp).toLocaleString("vi-VN")} · {event.actor}</small>
+                  </span>
+                  <Badge tone={event.status === "blocked" ? "danger" : "success"}>{event.status}</Badge>
+                  <p>{event.details}</p>
+                </li>
+              ))}
+            </ul>
+          )}
         </Card>
       ) : null}
     </>

@@ -1,4 +1,4 @@
-import { BrainCircuit, ChartNoAxesCombined, ClipboardList, SlidersHorizontal, Sparkles } from "lucide-react";
+import { BrainCircuit, ChartNoAxesCombined, ClipboardList, Settings2, SlidersHorizontal, Sparkles, UserRound } from "lucide-react";
 import { Link, NavLink } from "react-router-dom";
 import { useSessionStore } from "../store/sessionStore";
 import type { UserRole } from "../types/api";
@@ -9,6 +9,7 @@ const NAV_ITEMS: Array<{ to: string; label: string; icon: typeof Sparkles; roles
   { to: "/dossiers", label: "Hồ sơ chờ duyệt", icon: ClipboardList, roles: ["CUSTOMER", "CREDIT_OFFICER", "CREDIT_APPROVER", "ADMIN", "AUDITOR"] },
   { to: "/agents", label: "Agent flow", icon: BrainCircuit, roles: ["CREDIT_OFFICER", "CREDIT_APPROVER"] },
   { to: "/policy", label: "Chính sách", icon: SlidersHorizontal, roles: ["CREDIT_APPROVER"] },
+  { to: "/operations", label: "Vận hành", icon: Settings2, roles: ["CREDIT_OFFICER", "CREDIT_APPROVER", "ADMIN", "AUDITOR"] },
   { to: "/metrics", label: "Hiệu năng", icon: ChartNoAxesCombined, roles: ["CREDIT_OFFICER", "CREDIT_APPROVER", "ADMIN", "AUDITOR"] },
 ];
 
@@ -46,6 +47,11 @@ export const TopNav = () => {
           </NavLink>
         ))}
       </nav>
+
+      <Link to="/login" className={styles.homeLink}>
+        <UserRound size={15} />
+        <span>Đổi phiên</span>
+      </Link>
     </div>
   </header>
   );

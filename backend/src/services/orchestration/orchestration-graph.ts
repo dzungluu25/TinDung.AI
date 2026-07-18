@@ -1,7 +1,8 @@
 import { Annotation, StateGraph, START, END, interrupt } from "@langchain/langgraph";
 import { PostgresSaver } from "@langchain/langgraph-checkpoint-postgres";
-import { AgentTrace } from "../../types/trace.types";
-import { ConditionPrecedent } from "../../types/agent.types";
+import type { AgentTrace } from "../../types/trace.types";
+import type { OrchestrationTerminalFailure } from "../../types/orchestration.types";
+import type { ConditionPrecedent } from "../../types/agent.types";
 import { runCustomerProfileAgent } from "../agents/customer-profile.agent";
 import { runProductPolicyAgent } from "../agents/product-policy.agent";
 import { runCreditAgent } from "../agents/credit.agent";
@@ -13,9 +14,9 @@ import { decideNextAction } from "./decision-matrix.service";
 import { recordAuditEvent } from "../governance/audit-log.service";
 import { pgPool } from "../../config/pg";
 import { loadRetailCase } from "../data/retail-case-loader";
-import { RetailCase } from "../../types/case.types";
-import { ApprovedLoanTerms, ApprovalMode, BusinessValueProjection, DecisionConfidence } from "../../types/product.types";
-import { CreditAssessmentResult } from "../rules/credit-rule-engine";
+import type { RetailCase } from "../../types/case.types";
+import type { ApprovedLoanTerms, ApprovalMode, BusinessValueProjection, DecisionConfidence } from "../../types/product.types";
+import type { CreditAssessmentResult } from "../rules/credit-rule-engine";
 import { evaluateAutoApprovalPolicy } from "../rules/auto-approval-policy.service";
 import { projectBusinessValue } from "../business/profitability-engine";
 import { decisionPolicy, productCatalog } from "../../config/policy";
@@ -23,12 +24,14 @@ import { assessDecisionConfidence } from "../governance/decision-confidence.serv
 import { runPlanningPhase } from "../mcp/planning-client";
 import {
   CorrectableStage,
+  MAX_STAGE_CORRECTIONS,
   resolveValidationRoute,
   validateAgentTrace,
   validateDecisionOutput,
 } from "./orchestration-validation.service";
 import { ensurePendingApproval, getApprovedRecord } from "../platform/approval.service";
-import { ActionStepResult, ApprovalRecord, CompensationResult, TenantRuntimeConfig } from "../../types/platform.types";
+import type { ActionStepResult, ApprovalRecord, CompensationResult, TenantRuntimeConfig } from "../../types/platform.types";
+import { agentForStage, buildStageTerminalFailure } from "./agent-execution-policy";
 
 /**
  * Fast-lane eligibility is a conservative "clean file" rule: small ticket size,
@@ -70,6 +73,7 @@ export const OrchestrationAnnotation = Annotation.Root({
   maximumDtiPercent: Annotation<number>(),
   policyThresholds: Annotation<TenantRuntimeConfig["thresholds"] | undefined>({ default: () => undefined, reducer: (_prev, next) => next }),
   maximumModelCalls: Annotation<number>(),
+  maximumStageCorrections: Annotation<number>({ default: () => MAX_STAGE_CORRECTIONS, reducer: (_prev, next) => next }),
   requestedBy: Annotation<string>(),
   prompt: Annotation<string>(),
   caseId: Annotation<string>(),
@@ -83,6 +87,7 @@ export const OrchestrationAnnotation = Annotation.Root({
   // Routing state, decided inside the graph.
   riskTier: Annotation<"FAST" | "COMPLEX">({ default: () => "COMPLEX", reducer: (_prev, next) => next }),
   terminalReason: Annotation<"BLOCKED" | undefined>({ default: () => undefined, reducer: (_prev, next) => next }),
+  terminalFailure: Annotation<OrchestrationTerminalFailure | undefined>({ default: () => undefined, reducer: (_prev, next) => next }),
 
   modelCallsCount: Annotation<number>({ default: () => 0, reducer: (a, b) => a + b }),
   validationAttempts: Annotation<Partial<Record<CorrectableStage, number>>>({
@@ -93,6 +98,7 @@ export const OrchestrationAnnotation = Annotation.Root({
     default: () => ({}),
     reducer: (previous, next) => ({ ...previous, ...next }),
   }),
+  lastFailedStage: Annotation<CorrectableStage | undefined>({ default: () => undefined, reducer: (_prev, next) => next }),
   stageExecutionErrors: Annotation<Partial<Record<CorrectableStage, string>>>({
     default: () => ({}),
     reducer: (previous, next) => ({ ...previous, ...next }),
@@ -111,7 +117,9 @@ export const OrchestrationAnnotation = Annotation.Root({
   legalTrace: Annotation<AgentTrace | undefined>({ default: () => undefined, reducer: (_prev, next) => next }),
   legalAuditTrace: Annotation<AgentTrace | undefined>({ default: () => undefined, reducer: (_prev, next) => next }),
   fraudTrace: Annotation<AgentTrace | undefined>({ default: () => undefined, reducer: (_prev, next) => next }),
+  autoPolicyTrace: Annotation<AgentTrace | undefined>({ default: () => undefined, reducer: (_prev, next) => next }),
   selfCorrectionTrace: Annotation<AgentTrace | undefined>({ default: () => undefined, reducer: (_prev, next) => next }),
+  humanApprovalTrace: Annotation<AgentTrace | undefined>({ default: () => undefined, reducer: (_prev, next) => next }),
   riskTrace: Annotation<AgentTrace | undefined>({ default: () => undefined, reducer: (_prev, next) => next }),
   opsTrace: Annotation<AgentTrace | undefined>({ default: () => undefined, reducer: (_prev, next) => next }),
 
@@ -131,6 +139,31 @@ type StageNode = (state: OrchestrationState) => Promise<Partial<OrchestrationSta
 
 const errorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
+
+const terminalFailureFromState = (state: OrchestrationState): OrchestrationTerminalFailure => {
+  const stage = state.lastFailedStage ?? (Object.keys(state.validationErrors).find(
+    key => (state.validationErrors[key as CorrectableStage] ?? []).length > 0
+  ) as CorrectableStage | undefined) ?? "classify";
+  const errors = state.validationErrors[stage] ?? ["Unknown stage validation failure."];
+  return buildStageTerminalFailure(stage, state.validationAttempts[stage] ?? 0, errors);
+};
+
+const operationsTerminalFailure = (
+  attempts: number,
+  errors: string[],
+  action: OrchestrationTerminalFailure["action"]
+): OrchestrationTerminalFailure => ({
+  code: "MULTI_AGENT_STAGE_FAILED",
+  stage: "operations",
+  agent: "operations",
+  severity: "blocking",
+  attempts,
+  errors,
+  action,
+  message: action === "ROLLBACK"
+    ? "Operations stage failed and compensation handling was triggered."
+    : "Operations stage failed before a safe action could be completed.",
+});
 
 /** Convert thrown node errors into state so the validation edge can retry the stage. */
 const executeCorrectableStage = async (
@@ -160,7 +193,7 @@ const recordValidation = async (
       state.runId,
       "planner-agent",
       "agent_call",
-      { stage, failedValidations, errors: allErrors },
+      { stage, agent: agentForStage(stage), failedValidations, errors: allErrors },
       "allowed",
       `Validation failed at ${stage}; LangGraph will retry while the correction budget remains.`
     );
@@ -169,6 +202,7 @@ const recordValidation = async (
   return {
     validationAttempts: { [stage]: failedValidations },
     validationErrors: { [stage]: allErrors },
+    lastFailedStage: allErrors.length > 0 ? stage : state.lastFailedStage,
   };
 };
 
@@ -177,7 +211,8 @@ const validationRoute = (state: OrchestrationState, stage: CorrectableStage) =>
     state.validationErrors[stage] ?? [],
     state.validationAttempts[stage] ?? 0,
     state.modelCallsCount,
-    state.maximumModelCalls
+    state.maximumModelCalls,
+    state.maximumStageCorrections
   );
 
 const classifyNode = async (state: OrchestrationState): Promise<Partial<OrchestrationState>> => {
@@ -254,10 +289,26 @@ const classifyNode = async (state: OrchestrationState): Promise<Partial<Orchestr
  */
 const planningNode = async (state: OrchestrationState): Promise<Partial<OrchestrationState>> => {
   const { trace, optionalToolResults, shouldRunFraudInvestigation } = await runPlanningPhase(state.runId, state.caseId, state.riskTier, state.tenantId);
+  const planningDegraded = trace.status !== "completed";
+  if (planningDegraded) {
+    await recordAuditEvent(
+      state.runId,
+      "planner-agent",
+      "agent_call",
+      { stage: "planning", fallback: "RUN_FRAUD_INVESTIGATION" },
+      "allowed",
+      "Optional planning degraded; fraud investigation will run by conservative policy instead of being silently skipped."
+    );
+  }
   return {
-    planningTrace: trace,
+    planningTrace: {
+      ...trace,
+      stage: "planning",
+      executionStatus: planningDegraded ? "degraded" : "completed",
+      statusReason: planningDegraded ? "Optional planning failed; fraud investigation forced by fail-closed policy." : undefined,
+    },
     optionalToolResults,
-    shouldRunFraudInvestigation,
+    shouldRunFraudInvestigation: planningDegraded ? true : shouldRunFraudInvestigation,
     modelCallsCount: trace.toolCalls.length > 0 ? 1 : 0,
   };
 };
@@ -299,8 +350,11 @@ const fraudNode = async (state: OrchestrationState): Promise<Partial<Orchestrati
         id: `trace-fraud-${Date.now()}`,
         runId: state.runId,
         agent: "fraud",
+        stage: "fraud",
         task: "Investigate anomaly signals in the customer profile",
         status: "completed",
+        executionStatus: "skipped_by_policy",
+        statusReason: "Planning completed without a concrete fraud-investigation flag.",
         summary: "Planner không phát hiện tín hiệu bất thường cần điều tra thêm cho hồ sơ này.",
         toolCalls: [],
         startedAt: new Date().toISOString(),
@@ -328,12 +382,43 @@ const getOfferRate = (state: OrchestrationState): number | undefined => {
 };
 
 const autoPolicyNode = async (state: OrchestrationState): Promise<Partial<OrchestrationState>> => {
+  const startedAt = new Date().toISOString();
+  const buildTrace = (
+    summary: string,
+    output: Record<string, unknown>,
+    statusReason?: string
+  ): AgentTrace => ({
+    id: `trace-auto-policy-${Date.now()}`,
+    runId: state.runId,
+    agent: "auto_policy",
+    stage: "autoPolicy",
+    task: "Evaluate fast-lane auto-approval policy",
+    status: "completed",
+    executionStatus: "completed",
+    statusReason,
+    summary,
+    toolCalls: [{
+      toolName: "evaluateAutoApprovalPolicy",
+      input: { caseId: state.caseId, riskTier: state.riskTier },
+      output,
+      status: "success",
+    }],
+    startedAt,
+    completedAt: new Date().toISOString(),
+  });
+
   const retailCase = await loadRetailCase(state.caseId, state.tenantId);
   const credit = getCreditAssessment(state);
   const offerRate = getOfferRate(state);
   const confidence = assessDecisionConfidence("FAST", [state.profileTrace, state.productTrace, state.creditTrace]);
   if (!retailCase || !credit || offerRate === undefined || state.creditTrace?.status !== "completed" || confidence.status !== "VERIFIED") {
     return {
+      riskTier: "COMPLEX",
+      autoPolicyTrace: buildTrace(
+        "Auto-policy could not verify a clean fast-lane decision; routing to the complex lane.",
+        { eligible: false, confidence, hasRetailCase: Boolean(retailCase), hasCreditAssessment: Boolean(credit), hasOfferRate: offerRate !== undefined },
+        "FAST_LANE_NOT_VERIFIED"
+      ),
       finalDecision: "HUMAN_ESCALATION",
       approvalMode: "HYBRID_APPROVAL",
       confidence,
@@ -345,6 +430,11 @@ const autoPolicyNode = async (state: OrchestrationState): Promise<Partial<Orches
   if (fraudFindings.length) {
     return {
       riskTier: "COMPLEX",
+      autoPolicyTrace: buildTrace(
+        "Fraud findings prevent fast-lane auto-approval; routing to the complex lane.",
+        { eligible: false, fraudFindingsCount: fraudFindings.length },
+        "FRAUD_FINDINGS_REQUIRE_COMPLEX_LANE"
+      ),
       finalDecision: "HUMAN_ESCALATION",
       approvalMode: "HYBRID_APPROVAL",
       confidence,
@@ -358,7 +448,17 @@ const autoPolicyNode = async (state: OrchestrationState): Promise<Partial<Orches
   const maximumLtvPercent = state.policyThresholds?.maxLtvByPropertyType?.[retailCase.property.type] ?? decisionPolicy.autoApproval.maximumLtvPercent;
   const policy = evaluateAutoApprovalPolicy(retailCase, credit, hasProductConflict, state.maximumDtiPercent, maximumLtvPercent);
   if (!policy.eligible) {
-    return { riskTier: "COMPLEX", finalDecision: "HUMAN_ESCALATION", approvalMode: "HYBRID_APPROVAL", requiredFixes: policy.reasonCodes };
+    return {
+      riskTier: "COMPLEX",
+      autoPolicyTrace: buildTrace(
+        "Auto-policy was not eligible for direct approval; routing to the complex lane.",
+        { eligible: false, reasonCodes: policy.reasonCodes },
+        "AUTO_POLICY_INELIGIBLE"
+      ),
+      finalDecision: "HUMAN_ESCALATION",
+      approvalMode: "HYBRID_APPROVAL",
+      requiredFixes: policy.reasonCodes,
+    };
   }
 
   const approvedTerms: ApprovedLoanTerms = {
@@ -368,7 +468,18 @@ const autoPolicyNode = async (state: OrchestrationState): Promise<Partial<Orches
     approvalMode: "AUTO_APPROVAL",
     source: "ORIGINAL_REQUEST",
   };
-  return { finalDecision: "FAST_PASS", approvalMode: "AUTO_APPROVAL", approvedTerms, businessValue: projectBusinessValue(approvedTerms), confidence };
+  return {
+    autoPolicyTrace: buildTrace(
+      "Auto-policy verified all fast-lane gates and produced an AUTO_APPROVAL decision.",
+      { eligible: true, approvedTerms, confidence },
+      "FAST_PASS_VERIFIED"
+    ),
+    finalDecision: "FAST_PASS",
+    approvalMode: "AUTO_APPROVAL",
+    approvedTerms,
+    businessValue: projectBusinessValue(approvedTerms),
+    confidence,
+  };
 };
 
 const legalNode = async (state: OrchestrationState): Promise<Partial<OrchestrationState>> => {
@@ -430,8 +541,15 @@ const legalAuditNode = async (state: OrchestrationState): Promise<Partial<Orches
 };
 
 const riskNode = async (state: OrchestrationState): Promise<Partial<OrchestrationState>> => {
-  const mandatoryFailure = [state.profileTrace, state.productTrace, state.creditTrace, state.legalTrace]
-    .find(trace => !trace || trace.status === "failed");
+  const requiredTraces = [
+    state.profileTrace,
+    state.productTrace,
+    state.creditTrace,
+    state.legalTrace,
+    state.legalAuditTrace,
+    ...(state.shouldRunFraudInvestigation ? [state.fraudTrace] : []),
+  ];
+  const mandatoryFailure = requiredTraces.find(trace => !trace || trace.status !== "completed");
   if (mandatoryFailure) {
     const confidence = assessDecisionConfidence("COMPLEX", [state.profileTrace, state.productTrace, state.creditTrace, state.legalTrace]);
     return {
@@ -507,32 +625,138 @@ const riskNode = async (state: OrchestrationState): Promise<Partial<Orchestratio
 };
 
 const operationsNode = async (state: OrchestrationState): Promise<Partial<OrchestrationState>> => {
-  const { trace, ticketId,actionResults,compensationResults,manualInterventionRequired } = await runOperationsAgent(
-    state.runId,
-    state.caseId,
-    state.finalDecision,
-    state.conditions,
-    state.approvalToken,
-    state.approvalMode,
-    state.approvedTerms,
-    state.tenantId,
-    state.approvalRecord?.status === "approved",
-    state.approvalRecord?.decidedBy,
-    state.workflowAllowsAction,
-    state.allowedActionTools
-  );
-  return { opsTrace: trace, ticketId,actionResults,compensationResults,manualInterventionRequired };
+  const startedAt = new Date().toISOString();
+  try {
+    const { trace, ticketId,actionResults,compensationResults,manualInterventionRequired } = await runOperationsAgent(
+      state.runId,
+      state.caseId,
+      state.finalDecision,
+      state.conditions,
+      state.approvalToken,
+      state.approvalMode,
+      state.approvedTerms,
+      state.tenantId,
+      state.approvalRecord?.status === "approved",
+      state.approvalRecord?.decidedBy,
+      state.workflowAllowsAction,
+      state.allowedActionTools
+    );
+    const actionFailed = trace.status === "failed" || actionResults.some(result => result.status === "failed");
+    return {
+      opsTrace: trace.status === "failed" ? { ...trace, executionStatus: "terminal_failure", stage: "operations" } : { ...trace, executionStatus: "completed", stage: "operations" },
+      ticketId,
+      actionResults,
+      compensationResults,
+      manualInterventionRequired,
+      terminalFailure: actionFailed
+        ? operationsTerminalFailure(
+          actionResults.reduce((sum, result) => sum + result.attempts, 0),
+          actionResults.filter(result => result.status === "failed").map(result => result.error ?? `${result.stepId} failed`),
+          compensationResults.length > 0 ? "ROLLBACK" : "STOP"
+        )
+        : state.terminalFailure,
+    };
+  } catch (error) {
+    const message = errorMessage(error);
+    await recordAuditEvent(
+      state.runId,
+      "operations-agent",
+      "agent_call",
+      { stage: "operations", error: message },
+      "blocked",
+      "Operations stage failed before a safe action could be completed."
+    );
+    return {
+      opsTrace: {
+        id: `trace-ops-${Date.now()}`,
+        runId: state.runId,
+        agent: "operations",
+        stage: "operations",
+        task: "Execute banking operations and create records",
+        status: "failed",
+        executionStatus: "terminal_failure",
+        statusReason: "OPERATIONS_STAGE_FAILED",
+        summary: `Operations stage stopped safely: ${message}`,
+        toolCalls: [{
+          toolName: "runOperationsAgent",
+          input: { caseId: state.caseId, finalDecision: state.finalDecision, approvalMode: state.approvalMode },
+          output: { error: message },
+          status: "failed",
+        }],
+        startedAt,
+        completedAt: new Date().toISOString(),
+      },
+      ticketId: undefined,
+      manualInterventionRequired: true,
+      terminalFailure: operationsTerminalFailure(1, [message], "STOP"),
+    };
+  }
 };
 
 const humanApprovalNode = async (state: OrchestrationState): Promise<Partial<OrchestrationState>> => {
-  if (state.finalDecision !== "PASS" && state.finalDecision !== "CONDITIONAL_PASS") return {};
+  const startedAt = new Date().toISOString();
+  const buildTrace = (
+    summary: string,
+    executionStatus: AgentTrace["executionStatus"],
+    statusReason: string,
+    output: Record<string, unknown>
+  ): AgentTrace => ({
+    id: `trace-human-approval-${Date.now()}`,
+    runId: state.runId,
+    agent: "human_approval",
+    stage: "humanApproval",
+    task: "Gate high-risk approval decisions before operations",
+    status: "completed",
+    executionStatus,
+    statusReason,
+    summary,
+    toolCalls: [{
+      toolName: "evaluateHumanApprovalGate",
+      input: { finalDecision: state.finalDecision, approvalMode: state.approvalMode },
+      output,
+      status: "success",
+    }],
+    startedAt,
+    completedAt: new Date().toISOString(),
+  });
+
+  if (state.finalDecision !== "PASS" && state.finalDecision !== "CONDITIONAL_PASS") {
+    return {
+      humanApprovalTrace: buildTrace(
+        "Human approval gate was skipped by policy for this decision type.",
+        "skipped_by_policy",
+        "DECISION_DOES_NOT_REQUIRE_HYBRID_APPROVAL",
+        { required: false, finalDecision: state.finalDecision }
+      ),
+    };
+  }
   const approval=await ensurePendingApproval({tenantId:state.tenantId,runId:state.runId,checkpointId:state.runId,workflowId:state.workflowId,workflowVersion:state.workflowVersion,requiredRole:"CREDIT_APPROVER",expiresAt:new Date(Date.now()+24*60*60*1000).toISOString()});
   const resumed=interrupt<{approvalId:string;runId:string;requiredRole:string;expiresAt:string},{approvalId:string;decision:"approved"|"rejected"|"more_information"}>({approvalId:approval.id,runId:state.runId,requiredRole:approval.requiredRole,expiresAt:approval.expiresAt});
   if(resumed.approvalId!==approval.id) throw new Error("APPROVAL_RESUME_MISMATCH");
-  if(resumed.decision!=="approved") return {approvalRecord:{...approval,status:resumed.decision},finalDecision:resumed.decision==="rejected"?"REJECTED":"HUMAN_ESCALATION",requiredFixes:[resumed.decision==="rejected"?"Người phê duyệt đã từ chối hồ sơ.":"Người phê duyệt yêu cầu bổ sung thông tin."]};
+  if(resumed.decision!=="approved") {
+    return {
+      approvalRecord:{...approval,status:resumed.decision},
+      humanApprovalTrace: buildTrace(
+        "Human approver did not approve the proposal; downstream operations will use the resulting safe decision.",
+        "completed",
+        `APPROVAL_${resumed.decision.toUpperCase()}`,
+        { required: true, decision: resumed.decision, approvalId: approval.id }
+      ),
+      finalDecision:resumed.decision==="rejected"?"REJECTED":"HUMAN_ESCALATION",
+      requiredFixes:[resumed.decision==="rejected"?"Nguoi phe duyet da tu choi ho so.":"Nguoi phe duyet yeu cau bo sung thong tin."]
+    };
+  }
   const persisted=await getApprovedRecord(state.tenantId,state.runId);
   if(!persisted||persisted.id!==approval.id) throw new Error("APPROVAL_NOT_PERSISTED");
-  return {approvalRecord:persisted};
+  return {
+    approvalRecord:persisted,
+    humanApprovalTrace: buildTrace(
+      "Human approval gate completed with an approved decision.",
+      "completed",
+      "APPROVAL_GRANTED",
+      { required: true, decision: "approved", approvalId: approval.id, decidedBy: persisted.decidedBy }
+    ),
+  };
 };
 
 const hasInsuranceTyingViolation = (state: OrchestrationState): boolean =>
@@ -591,13 +815,20 @@ const validateFraudNode: StageNode = state => recordValidation(
 const validateAutoPolicyNode: StageNode = state => recordValidation(
   state,
   "autoPolicy",
-  validateDecisionOutput({
-    finalDecision: state.finalDecision,
-    approvalMode: state.approvalMode,
-    approvedTerms: state.approvedTerms,
-    confidenceStatus: state.confidence?.status,
-    requiredFixes: state.requiredFixes,
-  })
+  [
+    ...validateAgentTrace(state.autoPolicyTrace, {
+      runId: state.runId,
+      agent: "auto_policy",
+      requiredTools: ["evaluateAutoApprovalPolicy"],
+    }),
+    ...validateDecisionOutput({
+      finalDecision: state.finalDecision,
+      approvalMode: state.approvalMode,
+      approvedTerms: state.approvedTerms,
+      confidenceStatus: state.confidence?.status,
+      requiredFixes: state.requiredFixes,
+    }),
+  ]
 );
 
 const validateLegalNode: StageNode = state => recordValidation(
@@ -664,8 +895,6 @@ const validationFailureNode: StageNode = async state => {
   const requiredFixes = errors.length > 0
     ? errors.map(error => `AUTO_CORRECTION_EXHAUSTED: ${error}`)
     : ["AUTO_CORRECTION_EXHAUSTED: Không thể xác minh đầu ra của bước xử lý."];
-  const startedAt = new Date().toISOString();
-
   await recordAuditEvent(
     state.runId,
     "planner-agent",
@@ -676,28 +905,13 @@ const validationFailureNode: StageNode = async state => {
   );
 
   return {
+    terminalFailure: terminalFailureFromState(state),
     finalDecision: "HUMAN_ESCALATION",
     approvalMode: "HYBRID_APPROVAL",
     approvedTerms: undefined,
     businessValue: undefined,
     ticketId: undefined,
     requiredFixes,
-    riskTrace: {
-      id: `trace-risk-validation-${Date.now()}`,
-      runId: state.runId,
-      agent: "risk",
-      task: "Fail closed after bounded LangGraph self-correction",
-      status: "completed",
-      summary: `Dừng tự động sau khi hết số lần sửa sai. Chuyển ${errors.length || 1} lỗi sang chuyên viên thẩm định.`,
-      toolCalls: [{
-        toolName: "validateStageOutputs",
-        input: { attempts: state.validationAttempts },
-        output: { errors },
-        status: "success",
-      }],
-      startedAt,
-      completedAt: new Date().toISOString(),
-    },
   };
 };
 
@@ -766,9 +980,13 @@ const builder = new StateGraph(OrchestrationAnnotation)
     complex: "legal",
   })
   .addEdge("autoPolicy", "validateAutoPolicy")
-  .addConditionalEdges("validateAutoPolicy", state => validationRoute(state, "autoPolicy"), {
+  .addConditionalEdges("validateAutoPolicy", state => {
+    const route = validationRoute(state, "autoPolicy");
+    return route === "continue" ? (state.finalDecision === "FAST_PASS" ? "fastApproved" : "complex") : route;
+  }, {
     retry: "autoPolicy",
-    continue: "humanApproval",
+    fastApproved: "humanApproval",
+    complex: "legal",
     fail: "validationFailure",
   })
   .addEdge("legal", "validateLegal")
@@ -799,7 +1017,7 @@ const builder = new StateGraph(OrchestrationAnnotation)
     continue: "humanApproval",
     fail: "validationFailure",
   })
-  .addEdge("validationFailure", "operations")
+  .addEdge("validationFailure", END)
   .addEdge("humanApproval", "operations")
   .addEdge("operations", END);
 
@@ -824,9 +1042,11 @@ export const assembleTraces = (state: OrchestrationState): AgentTrace[] =>
     state.productTrace,
     state.creditTrace,
     state.fraudTrace,
+    state.autoPolicyTrace,
     state.legalTrace,
     state.selfCorrectionTrace,
     state.legalAuditTrace,
     state.riskTrace,
+    state.humanApprovalTrace,
     state.opsTrace,
   ].filter((t): t is AgentTrace => t !== undefined);

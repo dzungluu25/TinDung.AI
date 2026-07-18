@@ -21,6 +21,35 @@ export type DocumentStatus =
   | "OCR_COMPLETE"
   | "OCR_FAILED";
 
+export interface ChecklistRequiredField {
+  key: string;
+  label: string;
+}
+
+export interface ChecklistDocumentType {
+  documentType: string;
+  displayName: string;
+  formCode: string | null;
+  templateFileRef: string | null;
+  formMarkers: string[];
+  requiredFields: ChecklistRequiredField[];
+  appliesToLoanTypes: LoanType[];
+  requiredForLoanTypes: LoanType[];
+  note?: string;
+}
+
+export interface DocumentChecklistVersion {
+  tenantId: string;
+  loanType: LoanType;
+  version: string;
+  status: "draft" | "published";
+  items: ChecklistDocumentType[];
+  createdBy: string;
+  createdAt: string;
+  publishedBy?: string;
+  publishedAt?: string;
+}
+
 export type ReviewDecision = "approved" | "rejected" | "more_info";
 
 export interface LoanDossier {

@@ -1,7 +1,7 @@
-import { AgentTrace, AuditEvent, CostBudgetStatus } from "./trace.types";
-import { ConditionPrecedent } from "./agent.types";
-import { ApprovedLoanTerms, ApprovalMode, BusinessValueProjection, DecisionConfidence } from "./product.types";
-import { ActionStepResult, ApprovalRecord, CompensationResult, ValidationIssue } from "./platform.types";
+import type { AgentTrace, AuditEvent, CostBudgetStatus } from "./trace.types";
+import type { ConditionPrecedent } from "./agent.types";
+import type { ApprovedLoanTerms, ApprovalMode, BusinessValueProjection, DecisionConfidence } from "./product.types";
+import type { ActionStepResult, ApprovalRecord, CompensationResult, ValidationIssue } from "./platform.types";
 
 export type CitationSourceType = "LAW" | "DECREE" | "CIRCULAR" | "INTERNAL_POLICY" | "STANDARD";
 export type CitationVerificationStatus = "VERIFIED_OFFICIAL" | "INTERNAL_REVIEW_REQUIRED";
@@ -44,6 +44,17 @@ export interface OrchestrationRequest {
   approvalToken?: string;
 }
 
+export interface OrchestrationTerminalFailure {
+  code: "MULTI_AGENT_STAGE_FAILED";
+  stage: string;
+  agent?: string;
+  severity: "blocking";
+  attempts: number;
+  errors: string[];
+  message: string;
+  action: "STOP" | "ROLLBACK";
+}
+
 export interface OrchestrationResponse {
   mode?: "CREDIT_APPRAISAL";
   runId: string;
@@ -75,6 +86,7 @@ export interface OrchestrationResponse {
   businessValue?: BusinessValueProjection;
   confidence?: DecisionConfidence;
   transparency?: AnswerTransparency;
+  terminalFailure?: OrchestrationTerminalFailure;
 }
 
 /**

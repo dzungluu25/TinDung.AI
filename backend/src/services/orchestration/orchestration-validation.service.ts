@@ -1,6 +1,6 @@
-import { AgentRole } from "../../types/agent.types";
-import { AgentTrace } from "../../types/trace.types";
-import { ApprovalMode } from "../../types/product.types";
+import type { AgentRole } from "../../types/agent.types";
+import type { AgentTrace } from "../../types/trace.types";
+import type { ApprovalMode } from "../../types/product.types";
 
 export const MAX_STAGE_CORRECTIONS = 2;
 
@@ -132,9 +132,10 @@ export const resolveValidationRoute = (
   errors: string[],
   failedValidations: number,
   modelCallsUsed: number,
-  maximumModelCalls: number
+  maximumModelCalls: number,
+  maximumStageCorrections = MAX_STAGE_CORRECTIONS
 ): ValidationRoute => {
   if (errors.length === 0) return "continue";
-  if (failedValidations <= MAX_STAGE_CORRECTIONS && modelCallsUsed < maximumModelCalls) return "retry";
+  if (failedValidations <= maximumStageCorrections && modelCallsUsed < maximumModelCalls) return "retry";
   return "fail";
 };
