@@ -11,7 +11,7 @@ import { maskPiiPayload } from "./services/governance/pii-masking.service";
 import { AgentTrace } from "./types/trace.types";
 import { assessDecisionConfidence } from "./services/governance/decision-confidence.service";
 import { getKnowledgeGraphCatalog, validateKnowledgeGraphCatalog } from "./services/data/knowledge-graph-seed.service";
-import { routeOrExtractInput } from "./services/orchestration/input-router.service";
+import { routeOrExtractInput, screenInput } from "./services/orchestration/input-router.service";
 import { detectPromptInjection } from "./services/governance/input-security.service";
 
 // Local fixtures for deterministic rule-engine unit tests only — not the demo case
@@ -124,8 +124,19 @@ const testRouting = async () => {
   assert.deepEqual(tooShort, {
     ok: false,
     code: "INVALID_INPUT",
-    message: "Yêu cầu quá ngắn, quá dài hoặc không chứa đủ thông tin để thẩm định.",
+    message: "Yêu cầu chưa đủ nội dung: hiện có 2 từ, tối thiểu cần 3 từ mô tả hồ sơ.",
   });
+
+  assert.deepEqual(screenInput("Hồ sơ"), {
+    ok: false,
+    code: "INVALID_INPUT",
+    message: "Yêu cầu quá ngắn: hiện có 5 ký tự, tối thiểu cần 12 ký tự.",
+  });
+  assert.deepEqual(screenInput("{\"customer\":{\"name\":\"Nguyen Van A\"},\"loanAmount\":500000000}"), { ok: true }, "Compact JSON must not fail the whitespace-token heuristic");
+  const oversized = "a ".repeat(6001).trim();
+  const oversizedResult = screenInput(oversized);
+  assert.equal(oversizedResult.ok, false);
+  if (!oversizedResult.ok) assert.match(oversizedResult.message, /hiện có 12001 ký tự, tối đa cho phép 12000 ký tự/);
 
   const unknownExplicitCase = await routeOrExtractInput("Thẩm định hồ sơ tín dụng theo case đã chọn.", "case-does-not-exist");
   assert.equal(unknownExplicitCase.ok, false, "An explicit caseId that isn't in the DB must be rejected, not silently substituted");

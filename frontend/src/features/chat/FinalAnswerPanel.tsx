@@ -25,7 +25,7 @@ export const FinalAnswerPanel = () => {
   if (phase === "error") {
     return (
       <Card title="Kết luận thẩm định">
-        <div className={styles.errorBox}>{error ?? "Đã xảy ra lỗi không xác định."}</div>
+        <div className={styles.errorBox} style={{ whiteSpace: "pre-wrap" }}>{error ?? "Đã xảy ra lỗi không xác định."}</div>
       </Card>
     );
   }

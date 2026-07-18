@@ -30,24 +30,61 @@ export class OrchestrationInputError extends Error {
  * Validates only the prompt shape. Intent classification and security screening happen
  * before this router; case extraction is model-based rather than keyword-based.
  */
-const screenInput = (prompt: unknown): { ok: true } | { ok: false; code: InputErrorCode; message: string } => {
+const isStructuredJsonInput = (raw: string): boolean => {
+  if (!(raw.startsWith("{") || raw.startsWith("["))) return false;
+
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed !== null && typeof parsed === "object";
+  } catch {
+    return false;
+  }
+};
+
+export const screenInput = (prompt: unknown): { ok: true } | { ok: false; code: InputErrorCode; message: string } => {
   if (typeof prompt !== "string") {
     return { ok: false, code: "INVALID_INPUT", message: "Yêu cầu thẩm định phải là một chuỗi văn bản." };
   }
 
   const raw = prompt.trim();
-  if (
-    raw.length < decisionPolicy.routing.minimumPromptCharacters ||
-    raw.length > decisionPolicy.routing.maximumPromptCharacters ||
-    raw.split(/\s+/).length < decisionPolicy.routing.minimumPromptTokens
-  ) {
-    return { ok: false, code: "INVALID_INPUT", message: "Yêu cầu quá ngắn, quá dài hoặc không chứa đủ thông tin để thẩm định." };
+  if (raw.length < decisionPolicy.routing.minimumPromptCharacters) {
+    return {
+      ok: false,
+      code: "INVALID_INPUT",
+      message: `Yêu cầu quá ngắn: hiện có ${raw.length} ký tự, tối thiểu cần ${decisionPolicy.routing.minimumPromptCharacters} ký tự.`,
+    };
+  }
+
+  if (raw.length > decisionPolicy.routing.maximumPromptCharacters) {
+    return {
+      ok: false,
+      code: "INVALID_INPUT",
+      message: `Yêu cầu quá dài: hiện có ${raw.length} ký tự, tối đa cho phép ${decisionPolicy.routing.maximumPromptCharacters} ký tự. Vui lòng rút gọn phần diễn giải hoặc gửi dữ liệu hồ sơ ở dạng JSON gọn.`,
+    };
+  }
+
+  const tokenCount = raw.split(/\s+/).filter(Boolean).length;
+  if (!isStructuredJsonInput(raw) && tokenCount < decisionPolicy.routing.minimumPromptTokens) {
+    return {
+      ok: false,
+      code: "INVALID_INPUT",
+      message: `Yêu cầu chưa đủ nội dung: hiện có ${tokenCount} từ, tối thiểu cần ${decisionPolicy.routing.minimumPromptTokens} từ mô tả hồ sơ.`,
+    };
   }
 
   return { ok: true };
 };
 
 const randomCaseId = (): string => `case-${randomUUID()}`;
+
+export const formatMissingInfoMessage=(missingFields:string[],questions:string[]):string=>{
+  const details=[...new Set(questions.map(item=>item.trim()).filter(Boolean))];
+  const fallback=[...new Set(missingFields.map(item=>item.trim()).filter(Boolean))].map(field=>`Vui lòng bổ sung: ${field}.`);
+  const requirements=details.length?details:fallback;
+  return requirements.length
+    ? `Nội dung chưa đủ thông tin để dựng hồ sơ tín dụng. Các thông tin cần bổ sung:\n${requirements.map((item,index)=>`${index+1}. ${item}`).join("\n")}`
+    : "Nội dung chưa đủ thông tin để dựng hồ sơ tín dụng. Vui lòng bổ sung đầy đủ thông tin định danh, thu nhập, nghĩa vụ nợ, khoản vay, tài sản bảo đảm và các chấp thuận tra cứu.";
+};
 
 /**
  * Resolves a caseId for this request. An explicit requestedCaseId must exist in the DB;
@@ -74,7 +111,7 @@ export const routeOrExtractInput = async (
     return {
       ok: false,
       code: "NEEDS_MORE_INFO",
-      message: "Nội dung chưa đủ thông tin để dựng hồ sơ tín dụng. Vui lòng bổ sung các thông tin còn thiếu.",
+      message: formatMissingInfoMessage(extraction.missingFields,extraction.questions),
       questions: extraction.questions,
     };
   }

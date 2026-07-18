@@ -1,10 +1,10 @@
 {
   "policyId": "retail-credit-decision-policy",
-  "version": "2026.07.18",
+  "version": "2026.07.18.1",
   "effectiveFrom": "2026-07-18",
   "routing": {
     "minimumPromptCharacters": 12,
-    "maximumPromptCharacters": 2000,
+    "maximumPromptCharacters": 12000,
     "minimumPromptTokens": 3,
     "exactMatchScore": 100
   },
