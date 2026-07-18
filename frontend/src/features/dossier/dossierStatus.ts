@@ -11,6 +11,7 @@ export const dossierStatusTone: Record<DossierStatus, BadgeTone> = {
   APPROVED: "success",
   REJECTED: "danger",
   NEEDS_MORE_INFO: "warning",
+  PENDING_CIC: "warning",
 };
 
 export const dossierStatusLabel: Record<DossierStatus, string> = {
@@ -23,6 +24,7 @@ export const dossierStatusLabel: Record<DossierStatus, string> = {
   APPROVED: "Đã duyệt",
   REJECTED: "Đã từ chối",
   NEEDS_MORE_INFO: "Yêu cầu bổ sung",
+  PENDING_CIC: "Chờ chuyên viên bổ sung CIC",
 };
 
 export const documentStatusTone: Record<DocumentStatus, BadgeTone> = {
@@ -58,7 +60,6 @@ export const documentTypeLabel: Record<string, string> = {
   income_confirmation: "Giấy xác nhận thu nhập",
   labor_contract: "Hợp đồng lao động",
   social_insurance_book: "Sổ BHXH",
-  cic_report: "Kết quả tra cứu CIC",
   collateral_certificate: "Giấy chứng nhận QSDĐ/QSH nhà",
 };
 

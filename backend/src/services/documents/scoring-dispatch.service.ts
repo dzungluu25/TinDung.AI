@@ -1,12 +1,17 @@
 import { randomUUID } from "crypto";
 import { pgQuery } from "../../config/pg";
-import { getDossier, getLatestDocumentsByType, transitionDossierStatus } from "./dossier.service";
+import { getDossier, getLatestCicReport, getLatestDocumentsByType, transitionDossierStatus } from "./dossier.service";
 import { getLatestOcrResult } from "./ocr-extraction.service";
 import { estimateCreditRisk } from "../tools/ml-credit-risk.tool";
 import { assignReviewer } from "./reviewer-routing.service";
 import { recordAuditEvent } from "../governance/audit-log.service";
 
-/** Merges every OCR_COMPLETE document's extracted fields into one feature bag for the risk model. Field keys are already namespaced by our own checklist config, so a flat merge is safe. */
+/**
+ * Merges every OCR_COMPLETE document's extracted fields, PLUS the staff-entered CIC report (never
+ * OCR'd — see cic-report.service.ts), into one feature bag for the risk model. Field keys are
+ * already namespaced by our own checklist config, so a flat merge is safe. dispatchToScoring only
+ * ever runs once completeness confirms a CIC report exists, so cic is never null here in practice.
+ */
 const buildScoringFeatures = async (tenantId: string, dossierId: string): Promise<Record<string, unknown>> => {
   const documents = await getLatestDocumentsByType(tenantId, dossierId);
   const features: Record<string, unknown> = {};
@@ -14,6 +19,17 @@ const buildScoringFeatures = async (tenantId: string, dossierId: string): Promis
     const ocr = await getLatestOcrResult(tenantId, document.documentId);
     if (ocr) Object.assign(features, ocr.extractedFields);
   }
+
+  const cic = await getLatestCicReport(tenantId, dossierId);
+  if (cic) {
+    Object.assign(features, {
+      creditScore: cic.creditScore,
+      totalOutstandingDebt: cic.totalOutstandingDebt,
+      debtGroup: cic.debtGroup,
+      reportDate: cic.reportDate,
+    });
+  }
+
   return features;
 };
 

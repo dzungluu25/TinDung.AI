@@ -174,12 +174,16 @@ export const seedDatabases = async () => {
         case_id VARCHAR(50),
         loan_type VARCHAR(20) NOT NULL,
         checklist_version VARCHAR(30) NOT NULL,
-        status VARCHAR(30) NOT NULL CHECK (status IN ('COLLECTING','INCOMPLETE','COMPLETE','QUEUED_FOR_SCORING','SCORED','PENDING_REVIEW','APPROVED','REJECTED','NEEDS_MORE_INFO')),
+        status VARCHAR(30) NOT NULL CHECK (status IN ('COLLECTING','INCOMPLETE','COMPLETE','QUEUED_FOR_SCORING','SCORED','PENDING_REVIEW','APPROVED','REJECTED','NEEDS_MORE_INFO','PENDING_CIC')),
         created_by VARCHAR(100) NOT NULL,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
     `);
+    // CREATE TABLE IF NOT EXISTS does not retrofit a widened CHECK onto an already-existing table
+    // (adding PENDING_CIC — the "chờ chuyên viên bổ sung CIC" state) — drop/recreate is idempotent.
+    await pgQuery(`ALTER TABLE loan_dossiers DROP CONSTRAINT IF EXISTS loan_dossiers_status_check;`);
+    await pgQuery(`ALTER TABLE loan_dossiers ADD CONSTRAINT loan_dossiers_status_check CHECK (status IN ('COLLECTING','INCOMPLETE','COMPLETE','QUEUED_FOR_SCORING','SCORED','PENDING_REVIEW','APPROVED','REJECTED','NEEDS_MORE_INFO','PENDING_CIC'));`);
     await pgQuery(`CREATE INDEX IF NOT EXISTS idx_dossiers_tenant_status ON loan_dossiers (tenant_id,status,created_at DESC);`);
 
     await pgQuery(`
@@ -225,6 +229,30 @@ export const seedDatabases = async () => {
       );
     `);
     await pgQuery(`CREATE INDEX IF NOT EXISTS idx_ocr_results_document ON document_ocr_results (document_id,created_at DESC);`);
+
+    // CIC is deliberately NOT part of dossier_documents/document_ocr_results: it must never enter
+    // through the customer OCR/form-validation pipeline. A staff member types in what they read off
+    // the CIC lookup themselves (uploaded_by_role is a literal constant, not derived from any role
+    // lookup — this system has no customer account to compare against, see audit). Append-only, same
+    // as dossier_documents, so a correction never erases the previous staff entry.
+    await pgQuery(`
+      CREATE TABLE IF NOT EXISTS dossier_cic_reports (
+        id UUID PRIMARY KEY,
+        dossier_id VARCHAR(50) NOT NULL REFERENCES loan_dossiers(dossier_id),
+        tenant_id VARCHAR(100) NOT NULL,
+        storage_path TEXT,
+        original_filename TEXT,
+        credit_score TEXT NOT NULL,
+        total_outstanding_debt TEXT NOT NULL,
+        debt_group TEXT NOT NULL,
+        report_date TEXT NOT NULL,
+        notes TEXT,
+        uploaded_by_role VARCHAR(20) NOT NULL DEFAULT 'STAFF' CHECK (uploaded_by_role = 'STAFF'),
+        uploaded_by VARCHAR(100) NOT NULL,
+        uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+    await pgQuery(`CREATE INDEX IF NOT EXISTS idx_cic_reports_dossier ON dossier_cic_reports (dossier_id,uploaded_at DESC);`);
 
     await pgQuery(`
       CREATE TABLE IF NOT EXISTS dossier_missing_document_notices (

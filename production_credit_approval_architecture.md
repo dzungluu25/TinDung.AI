@@ -67,7 +67,7 @@ Hệ thống được thiết kế theo mô hình **Event-Driven Microservices**
     *   Tự động phát hiện xung đột và chạy vòng lặp **Tự động sửa lỗi (Self-Correction Loop)**: Khi Legal Agent phản hồi `VIOLATION` về lãi suất bị ép kèm bảo hiểm (Insurance Tying), Planner sẽ điều hướng lại Product Agent để thực hiện Re-price vô điều kiện trước khi đẩy tiếp sang các bước sau.
 
 ### 2.2. Customer Profile Agent (Trích xuất & Xác thực)
-*   **Nghiệp vụ cốt lõi:** OCR tài liệu thô (CCCD, Sổ đỏ, Bảng lương) bằng **Google Document AI** $\rightarrow$ Trích xuất thông tin cấu trúc $\rightarrow$ Kiểm tra chéo với CSDL Dân cư Quốc gia (VNeID) và CSDL nội bộ của SHB.
+*   **Nghiệp vụ cốt lõi:** OCR tài liệu thô (CCCD, Sổ đỏ, Bảng lương) bằng **Tesseract chạy local** $\rightarrow$ Trích xuất thông tin cấu trúc $\rightarrow$ Kiểm tra chéo với CSDL Dân cư Quốc gia (VNeID) và CSDL nội bộ của SHB. Phương án này miễn phí và phù hợp bản demo; production có thể thay engine sau qua lớp OCR adapter.
 *   **Bảo vệ dữ liệu:** Tích hợp với **Governance Agent** để Tokenize thông tin PII ngay từ đầu vào. Các Agent sau chỉ được đọc ID giao dịch ẩn danh để tránh rò rỉ dữ liệu.
 
 ### 2.3. Credit Assessment Agent (Thẩm định tài chính)

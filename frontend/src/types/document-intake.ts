@@ -9,7 +9,8 @@ export type DossierStatus =
   | "PENDING_REVIEW"
   | "APPROVED"
   | "REJECTED"
-  | "NEEDS_MORE_INFO";
+  | "NEEDS_MORE_INFO"
+  | "PENDING_CIC";
 
 export type DocumentStatus =
   | "UPLOADED"
@@ -64,6 +65,21 @@ export interface DossierCompletenessResult {
   missingDocumentTypes: Array<{ documentType: string; displayName: string }>;
 }
 
+export interface DossierCicReport {
+  id: string;
+  dossierId: string;
+  storagePath: string | null;
+  originalFilename: string | null;
+  creditScore: string;
+  totalOutstandingDebt: string;
+  debtGroup: string;
+  reportDate: string;
+  notes: string | null;
+  uploadedByRole: "STAFF";
+  uploadedBy: string;
+  uploadedAt: string;
+}
+
 export interface DossierReviewDecisionRecord {
   id: string;
   dossierId: string;
@@ -77,6 +93,7 @@ export interface DossierDetail {
   dossier: LoanDossier;
   documents: DossierDocumentWithOcr[];
   completeness: DossierCompletenessResult;
+  cicReport: DossierCicReport | null;
   scoring: { status: string; score_result: Record<string, unknown> | null; scored_at: string | null } | null;
   assignedOfficer: string | null;
   assignedAt: string | null;

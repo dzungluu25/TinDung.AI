@@ -10,6 +10,7 @@ import {
   listDossiersHandler,
   publishChecklistVersionHandler,
   reviewDecisionHandler,
+  submitCicReportHandler,
   uploadDocumentHandler,
 } from "../controllers/document-intake.controller";
 
@@ -29,4 +30,6 @@ dossierRoutes.post("/", createDossierHandler);
 dossierRoutes.get("/", listDossiersHandler);
 dossierRoutes.get("/:id", getDossierHandler);
 dossierRoutes.post("/:id/documents", upload.single("file"), uploadDocumentHandler);
+// Separate from /documents on purpose (task: 2 luồng tách biệt) — no document_type, no OCR pipeline.
+dossierRoutes.post("/:id/cic-report", upload.single("file"), submitCicReportHandler);
 dossierRoutes.post("/:id/review-decision", reviewDecisionHandler);

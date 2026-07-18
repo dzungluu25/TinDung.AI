@@ -1,4 +1,4 @@
-import { runDocumentOcr } from "./document-ai-client.service";
+import { runDocumentOcr } from "./local-ocr.service";
 import { checkFormMarkers, persistFormValidationResult } from "./form-validation.service";
 import { persistOcrExtraction } from "./ocr-extraction.service";
 import { ChecklistDocumentType, DocumentStatus, FormValidationResult, OcrExtractionResult } from "../../types/document-intake.types";
@@ -10,7 +10,7 @@ export interface DocumentPipelineResult {
 }
 
 /**
- * Orchestrates the per-document pipeline triggered right after upload: one Document AI call →
+ * Orchestrates the per-document pipeline triggered right after upload: one local OCR pass →
  * task 2 form-mismatch gate → (only if passed) task 3 field extraction. A document that fails form
  * validation never reaches field extraction — the two failure modes stay on separate tables/logs.
  */

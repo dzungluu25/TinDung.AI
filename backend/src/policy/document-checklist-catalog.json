@@ -1,6 +1,6 @@
 {
   "catalogId": "loan-document-checklist",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "loanTypes": ["unsecured", "mortgage"],
   "minOverallConfidenceDefault": 0.8,
   "documentTypes": [
@@ -118,22 +118,6 @@
       "appliesToLoanTypes": ["unsecured", "mortgage"],
       "requiredForLoanTypes": [],
       "note": "Tùy chọn theo nghiệp vụ thực tế — giúp tăng điểm tín dụng, không bắt buộc mọi khoản vay."
-    },
-    {
-      "documentType": "cic_report",
-      "displayName": "Kết quả tra cứu CIC",
-      "formCode": null,
-      "templateFileRef": null,
-      "formMarkers": ["THÔNG TIN TÍN DỤNG"],
-      "requiredFields": [
-        {"key": "creditScore", "label": "Điểm tín dụng"},
-        {"key": "totalOutstandingDebt", "label": "Tổng dư nợ"},
-        {"key": "debtGroup", "label": "Nhóm nợ"},
-        {"key": "reportDate", "label": "Ngày tra cứu"}
-      ],
-      "appliesToLoanTypes": ["unsecured", "mortgage"],
-      "requiredForLoanTypes": ["unsecured", "mortgage"],
-      "note": "Trong hệ thống production, dữ liệu này nên do ngân hàng tự tra cứu qua API CIC nội bộ thay vì khách hàng upload. Module này mô phỏng theo đúng yêu cầu OCR gốc của task (checklist bao gồm CIC dưới dạng tài liệu khách hàng nộp)."
     },
     {
       "documentType": "collateral_certificate",

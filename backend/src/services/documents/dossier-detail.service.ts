@@ -1,5 +1,5 @@
 import { pgQuery } from "../../config/pg";
-import { getAllDossierDocuments, getDossier } from "./dossier.service";
+import { getAllDossierDocuments, getDossier, getLatestCicReport } from "./dossier.service";
 import { getLatestOcrResult } from "./ocr-extraction.service";
 import { evaluateDossierCompleteness } from "./checklist-completeness.service";
 import { listReviewDecisions } from "./review-decision.service";
@@ -20,6 +20,7 @@ export const getDossierDetail = async (tenantId: string, dossierId: string) => {
   );
 
   const completeness = await evaluateDossierCompleteness(tenantId, dossierId);
+  const cicReport = await getLatestCicReport(tenantId, dossierId);
 
   const scoring = await pgQuery(`SELECT status,score_result,scored_at FROM scoring_queue WHERE tenant_id=$1 AND dossier_id=$2`, [tenantId, dossierId]);
   const assignment = await pgQuery(`SELECT assigned_officer,assigned_at FROM dossier_review_assignments WHERE tenant_id=$1 AND dossier_id=$2`, [tenantId, dossierId]);
@@ -29,6 +30,7 @@ export const getDossierDetail = async (tenantId: string, dossierId: string) => {
     dossier,
     documents: documentsWithOcr,
     completeness,
+    cicReport,
     scoring: scoring.rows[0] ?? null,
     assignedOfficer: assignment.rows[0]?.assigned_officer ?? null,
     assignedAt: assignment.rows[0]?.assigned_at ?? null,

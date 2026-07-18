@@ -9,7 +9,8 @@ export type DossierStatus =
   | "PENDING_REVIEW"
   | "APPROVED"
   | "REJECTED"
-  | "NEEDS_MORE_INFO";
+  | "NEEDS_MORE_INFO"
+  | "PENDING_CIC";
 
 export type DocumentStatus =
   | "UPLOADED"
@@ -109,6 +110,27 @@ export interface OcrExtractionResult {
 export interface DossierCompletenessResult {
   complete: boolean;
   missingDocumentTypes: Array<{ documentType: string; displayName: string }>;
+}
+
+/**
+ * Kept entirely separate from DossierDocument/dossier_documents: CIC never goes through the
+ * customer OCR/form-validation pipeline. uploadedByRole is a literal constant the server sets — it
+ * does not compare against a "customer" identity, because this system has no customer account.
+ */
+export interface DossierCicReport {
+  id: string;
+  dossierId: string;
+  tenantId: string;
+  storagePath: string | null;
+  originalFilename: string | null;
+  creditScore: string;
+  totalOutstandingDebt: string;
+  debtGroup: string;
+  reportDate: string;
+  notes: string | null;
+  uploadedByRole: "STAFF";
+  uploadedBy: string;
+  uploadedAt: string;
 }
 
 export type ReviewDecision = "approved" | "rejected" | "more_info";

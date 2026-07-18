@@ -45,6 +45,21 @@ export const apiFetch = async <T>(path: string, options: RequestOptions = {}): P
   return response.json() as Promise<T>;
 };
 
+/** Multipart POST helper (file uploads) — no Content-Type header set manually so the browser fills in the multipart boundary itself. */
+export const apiFetchMultipart = async <T>(path: string, formData: FormData, token: string): Promise<T> => {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new ApiError(await parseErrorMessage(response), response.status);
+  }
+
+  return response.json() as Promise<T>;
+};
+
 /** Raw streaming POST helper — returns the fetch Response so callers can read the NDJSON body incrementally. */
 export const apiFetchStream = async (path: string, body: unknown, token: string): Promise<Response> => {
   const response = await fetch(`${API_BASE_URL}${path}`, {

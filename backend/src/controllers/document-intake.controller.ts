@@ -5,12 +5,13 @@ import { createDossier, listDossiers, ListDossiersFilter } from "../services/doc
 import { uploadDocument } from "../services/documents/document-upload.service";
 import { getDossierDetail } from "../services/documents/dossier-detail.service";
 import { submitReviewDecision } from "../services/documents/review-decision.service";
+import { submitCicReport } from "../services/documents/cic-report.service";
 import { ChecklistDocumentType, DossierStatus, LoanType, ReviewDecision } from "../types/document-intake.types";
 
 const fail = (res: Response, error: unknown) => {
   const message = error instanceof Error ? error.message : "UNKNOWN_ERROR";
-  const status = message.includes("not configured")
-    ? 503 // infra/credential gap (e.g. Document AI, Gmail SMTP not set up yet) — distinct from a business rejection
+  const status = message.includes("not configured") || message.includes("LOCAL_OCR_BINARY_NOT_FOUND")
+    ? 503 // infra/credential gap (e.g. SMTP not set up yet) — distinct from a business rejection
     : message.includes("NOT_FOUND")
     ? 404
     : message.includes("FORBIDDEN") || message.includes("TENANT")
@@ -76,7 +77,7 @@ export const createDossierHandler = async (req: AuthenticatedRequest, res: Respo
 
 const VALID_DOSSIER_STATUSES: DossierStatus[] = [
   "COLLECTING", "INCOMPLETE", "COMPLETE", "QUEUED_FOR_SCORING", "SCORED",
-  "PENDING_REVIEW", "APPROVED", "REJECTED", "NEEDS_MORE_INFO",
+  "PENDING_REVIEW", "APPROVED", "REJECTED", "NEEDS_MORE_INFO", "PENDING_CIC",
 ];
 const isDossierStatus = (value: unknown): value is DossierStatus => typeof value === "string" && VALID_DOSSIER_STATUSES.includes(value as DossierStatus);
 
@@ -134,6 +135,36 @@ export const uploadDocumentHandler = async (req: AuthenticatedRequest, res: Resp
     // The file was stored either way (kept for evidence/audit); a form mismatch is reported as a
     // rejection rather than a plain success so the client can't miss it (task 2: "từ chối ngay, trả lỗi rõ ràng").
     return res.status(result.formResult.passed ? 201 : 422).json(result);
+  } catch (e) {
+    return fail(res, e);
+  }
+};
+
+const isNonEmptyString = (value: unknown): value is string => typeof value === "string" && value.trim().length > 0;
+
+/**
+ * Staff-only CIC entry — completely separate from uploadDocumentHandler above. No document_type
+ * mapping, no OCR, no form-validation call. The file (if attached) is evidence only; the structured
+ * fields are what the staff member read off the CIC lookup themselves.
+ */
+export const submitCicReportHandler = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { creditScore, totalOutstandingDebt, debtGroup, reportDate, notes } = req.body as Record<string, unknown>;
+    if (!isNonEmptyString(creditScore) || !isNonEmptyString(totalOutstandingDebt) || !isNonEmptyString(debtGroup) || !isNonEmptyString(reportDate)) {
+      return res.status(400).json({ error: "CIC_FIELDS_REQUIRED" });
+    }
+    const file = (req as AuthenticatedRequest & { file?: Express.Multer.File }).file;
+    const result = await submitCicReport(
+      req.user!.tenantId,
+      req.params.id,
+      {
+        creditScore, totalOutstandingDebt, debtGroup, reportDate,
+        notes: typeof notes === "string" ? notes : undefined,
+        file: file ? { buffer: file.buffer, originalFilename: file.originalname, mimeType: file.mimetype } : undefined,
+      },
+      req.user!.sub
+    );
+    return res.status(201).json(result);
   } catch (e) {
     return fail(res, e);
   }

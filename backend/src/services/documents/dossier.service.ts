@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { pgQuery } from "../../config/pg";
 import { getPublishedChecklist } from "./document-checklist.service";
-import { DossierDocument, DossierStatus, LoanDossier, LoanType } from "../../types/document-intake.types";
+import { DossierCicReport, DossierDocument, DossierStatus, LoanDossier, LoanType } from "../../types/document-intake.types";
 
 const toDossier = (row: any): LoanDossier => ({
   dossierId: row.dossier_id,
@@ -64,6 +64,36 @@ export const getAllDossierDocuments = async (tenantId: string, dossierId: string
   const result = await pgQuery(`SELECT * FROM dossier_documents WHERE tenant_id=$1 AND dossier_id=$2 ORDER BY uploaded_at DESC`, [tenantId, dossierId]);
   return result.rows.map(toDocument);
 };
+
+const toCicReport = (row: any): DossierCicReport => ({
+  id: row.id,
+  dossierId: row.dossier_id,
+  tenantId: row.tenant_id,
+  storagePath: row.storage_path,
+  originalFilename: row.original_filename,
+  creditScore: row.credit_score,
+  totalOutstandingDebt: row.total_outstanding_debt,
+  debtGroup: row.debt_group,
+  reportDate: row.report_date,
+  notes: row.notes,
+  uploadedByRole: "STAFF",
+  uploadedBy: row.uploaded_by,
+  uploadedAt: row.uploaded_at,
+});
+
+/**
+ * Read-side only — kept here (not in cic-report.service.ts, which owns the write) so that
+ * checklist-completeness.service.ts can check CIC presence without importing cic-report.service.ts
+ * back, which would create document-upload -> checklist-completeness -> cic-report -> checklist-
+ * completeness circular import. cic-report.service.ts re-exports both for callers that only know
+ * about the CIC module.
+ */
+export const getLatestCicReport = async (tenantId: string, dossierId: string): Promise<DossierCicReport | null> => {
+  const result = await pgQuery(`SELECT * FROM dossier_cic_reports WHERE tenant_id=$1 AND dossier_id=$2 ORDER BY uploaded_at DESC LIMIT 1`, [tenantId, dossierId]);
+  return result.rows[0] ? toCicReport(result.rows[0]) : null;
+};
+
+export const hasCicReport = async (tenantId: string, dossierId: string): Promise<boolean> => (await getLatestCicReport(tenantId, dossierId)) !== null;
 
 /** State-machine-safe transition: only applies if the dossier is currently in one of `fromStatuses` — guards against racing writers instead of blindly overwriting status. */
 export const transitionDossierStatus = async (

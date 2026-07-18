@@ -1,13 +1,13 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, CircleAlert, XCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, CircleAlert, Search, Upload, XCircle } from "lucide-react";
 import { Header } from "../layouts/Header";
 import { Card } from "../components/Card";
 import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
 import { Skeleton } from "../components/Skeleton";
 import { getDemoAccessToken } from "../services/authService";
-import { getDossierDetail, submitReviewDecision } from "../services/dossierService";
+import { getDossierDetail, submitCicReport, submitReviewDecision } from "../services/dossierService";
 import { ApiError } from "../services/httpClient";
 import {
   documentStatusLabel, documentStatusTone, documentTypeLabel,
@@ -23,6 +23,10 @@ export const DossierDetailPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState<ReviewDecision | null>(null);
+  const [cicForm, setCicForm] = useState({ creditScore: "", totalOutstandingDebt: "", debtGroup: "", reportDate: "", notes: "" });
+  const [cicFile, setCicFile] = useState<File | null>(null);
+  const [cicSubmitting, setCicSubmitting] = useState(false);
+  const [cicError, setCicError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -56,6 +60,24 @@ export const DossierDetailPage = () => {
     }
   };
 
+  const submitCic = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!id) return;
+    setCicSubmitting(true);
+    setCicError(null);
+    try {
+      const token = await getDemoAccessToken();
+      await submitCicReport(token, id, { ...cicForm, notes: cicForm.notes.trim() || undefined, file: cicFile ?? undefined });
+      setCicForm({ creditScore: "", totalOutstandingDebt: "", debtGroup: "", reportDate: "", notes: "" });
+      setCicFile(null);
+      await load();
+    } catch (err) {
+      setCicError(err instanceof ApiError ? err.message : "Không thể lưu CIC.");
+    } finally {
+      setCicSubmitting(false);
+    }
+  };
+
   if (loading && !detail) {
     return (
       <>
@@ -77,7 +99,8 @@ export const DossierDetailPage = () => {
   }
 
   if (!detail) return null;
-  const { dossier, documents, completeness, scoring, assignedOfficer, reviewDecisions } = detail;
+  const { dossier, documents, completeness, cicReport, scoring, assignedOfficer, reviewDecisions } = detail;
+  const dossierFinalized = dossier.status === "APPROVED" || dossier.status === "REJECTED";
 
   return (
     <>
@@ -116,6 +139,58 @@ export const DossierDetailPage = () => {
           </Card>
         ) : null}
       </div>
+
+      <Card title="CIC — chuyên viên tự tra cứu / nhập tay" action={<Search size={16} />} className={styles.documentsCard}>
+        <p className={styles.disclaimer}>
+          Khách hàng không nộp CIC. Chuyên viên tự tra cứu và nhập trực tiếp — dữ liệu này không qua OCR, không do khách hàng cung cấp.
+        </p>
+        {cicReport ? (
+          <div className={styles.fieldGrid}>
+            <div className={styles.fieldCell}><span className={styles.fieldLabel}>Điểm tín dụng</span><span className={styles.fieldValue}>{cicReport.creditScore}</span></div>
+            <div className={styles.fieldCell}><span className={styles.fieldLabel}>Tổng dư nợ</span><span className={styles.fieldValue}>{cicReport.totalOutstandingDebt}</span></div>
+            <div className={styles.fieldCell}><span className={styles.fieldLabel}>Nhóm nợ</span><span className={styles.fieldValue}>{cicReport.debtGroup}</span></div>
+            <div className={styles.fieldCell}><span className={styles.fieldLabel}>Ngày tra cứu</span><span className={styles.fieldValue}>{cicReport.reportDate}</span></div>
+          </div>
+        ) : (
+          <p className={styles.warnLine}><CircleAlert size={16} /> Chưa có CIC — hồ sơ sẽ không vào hàng đợi đánh giá cho tới khi được bổ sung.</p>
+        )}
+        {cicReport ? (
+          <p className={styles.assigned}>
+            Do <strong>{cicReport.uploadedBy}</strong> nhập lúc {new Date(cicReport.uploadedAt).toLocaleString("vi-VN")} (vai trò: STAFF)
+            {cicReport.originalFilename ? ` · Đính kèm: ${cicReport.originalFilename}` : ""}
+          </p>
+        ) : null}
+        {cicReport?.notes ? <p className={styles.decisionComment}>{cicReport.notes}</p> : null}
+
+        {!dossierFinalized ? (
+          <form className={styles.cicForm} onSubmit={submitCic}>
+            <div className={styles.cicFormGrid}>
+              <label>Điểm tín dụng
+                <input required value={cicForm.creditScore} onChange={e => setCicForm(f => ({ ...f, creditScore: e.target.value }))} />
+              </label>
+              <label>Tổng dư nợ
+                <input required value={cicForm.totalOutstandingDebt} onChange={e => setCicForm(f => ({ ...f, totalOutstandingDebt: e.target.value }))} />
+              </label>
+              <label>Nhóm nợ
+                <input required value={cicForm.debtGroup} onChange={e => setCicForm(f => ({ ...f, debtGroup: e.target.value }))} />
+              </label>
+              <label>Ngày tra cứu
+                <input required type="date" value={cicForm.reportDate} onChange={e => setCicForm(f => ({ ...f, reportDate: e.target.value }))} />
+              </label>
+            </div>
+            <label className={styles.cicNotesLabel}>Ghi chú (tuỳ chọn)
+              <textarea rows={2} value={cicForm.notes} onChange={e => setCicForm(f => ({ ...f, notes: e.target.value }))} />
+            </label>
+            <label className={styles.cicNotesLabel}>File đính kèm (tuỳ chọn — chỉ lưu làm bằng chứng, không OCR)
+              <input type="file" onChange={e => setCicFile(e.target.files?.[0] ?? null)} />
+            </label>
+            {cicError ? <p className={styles.error}>{cicError}</p> : null}
+            <Button type="submit" variant="secondary" isLoading={cicSubmitting} disabled={cicSubmitting}>
+              <Upload size={15} /> {cicReport ? "Cập nhật CIC" : "Nhập CIC"}
+            </Button>
+          </form>
+        ) : null}
+      </Card>
 
       <Card title={`Giấy tờ đã nộp (${documents.length})`} className={styles.documentsCard}>
         {documents.length === 0 ? (

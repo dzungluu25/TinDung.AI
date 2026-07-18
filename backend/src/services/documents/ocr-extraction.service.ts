@@ -4,6 +4,8 @@ import { recordAuditEvent } from "../governance/audit-log.service";
 import { documentChecklistCatalog } from "../../config/document-checklist";
 import { ChecklistDocumentType, DocumentStatus, OcrExtractionResult, OcrFieldConfidence } from "../../types/document-intake.types";
 
+const OCR_ENGINE = "tesseract_local";
+
 const escapeRegex = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 export const getLatestOcrResult = async (tenantId: string, documentId: string): Promise<OcrExtractionResult | null> => {
@@ -29,8 +31,8 @@ export const getLatestOcrResult = async (tenantId: string, documentId: string): 
 /**
  * Task 3: label-based extraction against our own fixed-layout bank forms (mẫu 01/02/03-TC-KHCN,
  * see mau_don/). This is a heuristic on known templates, not a general document-understanding
- * model — Document AI's native per-field confidence requires a custom-trained processor, which is
- * a GCP console/training step outside this codebase (see plan's manual-prerequisites note).
+ * model. Tesseract supplies word-level confidence; we propagate the document average to fields
+ * matched by the deterministic label extractor.
  */
 export const extractFields = (
   ocrText: string,
@@ -41,7 +43,7 @@ export const extractFields = (
   const extractedFields: Record<string, string> = {};
   const fieldConfidence: OcrFieldConfidence = {};
   const missingRequiredFields: string[] = [];
-  const quality = ocrQuality > 0 ? Math.max(0, Math.min(1, ocrQuality)) : 1;
+  const quality = Number.isFinite(ocrQuality) ? Math.max(0, Math.min(1, ocrQuality)) : 0;
 
   for (const field of checklistItem.requiredFields) {
     const labelPattern = escapeRegex(field.label);
@@ -84,8 +86,8 @@ export const persistOcrExtraction = async (
   const createdAt = new Date().toISOString();
   const result = await pgQuery(
     `INSERT INTO document_ocr_results (id,document_id,tenant_id,extracted_fields,field_confidence,overall_confidence,missing_required_fields,engine,created_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,'google_document_ai',$8) RETURNING id,created_at`,
-    [id, documentId, tenantId, JSON.stringify(computed.extractedFields), JSON.stringify(computed.fieldConfidence), computed.overallConfidence, JSON.stringify(computed.missingRequiredFields), createdAt]
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id,created_at`,
+    [id, documentId, tenantId, JSON.stringify(computed.extractedFields), JSON.stringify(computed.fieldConfidence), computed.overallConfidence, JSON.stringify(computed.missingRequiredFields), OCR_ENGINE, createdAt]
   );
   const row = result.rows[0] as { id: string; created_at: string } | undefined;
   if (!row) throw new Error("OCR_RESULT_PERSIST_FAILED");
@@ -118,7 +120,7 @@ export const persistOcrExtraction = async (
       fieldConfidence: computed.fieldConfidence,
       overallConfidence: computed.overallConfidence,
       missingRequiredFields: computed.missingRequiredFields,
-      engine: "google_document_ai",
+      engine: OCR_ENGINE,
       createdAt: row.created_at,
     },
   };

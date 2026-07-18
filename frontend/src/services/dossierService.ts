@@ -1,5 +1,5 @@
-import { apiFetch } from "./httpClient";
-import type { DossierDetail, DossierReviewDecisionRecord, DossierStatus, LoanDossier, LoanType, ReviewDecision } from "../types/document-intake";
+import { apiFetch, apiFetchMultipart } from "./httpClient";
+import type { DossierCicReport, DossierDetail, DossierReviewDecisionRecord, DossierStatus, LoanDossier, LoanType, ReviewDecision } from "../types/document-intake";
 
 export interface ListDossiersFilter {
   status?: DossierStatus;
@@ -21,6 +21,27 @@ export const listDossiers = (token: string, filter: ListDossiersFilter): Promise
 
 export const getDossierDetail = (token: string, dossierId: string): Promise<DossierDetail> =>
   apiFetch(`/api/dossiers/${dossierId}`, { token });
+
+export interface CicReportFormInput {
+  creditScore: string;
+  totalOutstandingDebt: string;
+  debtGroup: string;
+  reportDate: string;
+  notes?: string;
+  file?: File;
+}
+
+/** Staff-only — separate endpoint from document upload, no document_type, never OCR'd. */
+export const submitCicReport = (token: string, dossierId: string, input: CicReportFormInput): Promise<DossierCicReport> => {
+  const formData = new FormData();
+  formData.set("creditScore", input.creditScore);
+  formData.set("totalOutstandingDebt", input.totalOutstandingDebt);
+  formData.set("debtGroup", input.debtGroup);
+  formData.set("reportDate", input.reportDate);
+  if (input.notes) formData.set("notes", input.notes);
+  if (input.file) formData.set("file", input.file);
+  return apiFetchMultipart(`/api/dossiers/${dossierId}/cic-report`, formData, token);
+};
 
 export const submitReviewDecision = (
   token: string,
