@@ -79,7 +79,13 @@ export const useOrchestrationStore = create<OrchestrationStoreState>()((set, get
       return;
     }
     if (event.type === "terminal") {
-      if (event.status === "failed" || event.status === "manual_intervention_required") set({ phase: "error", runId: event.runId, error: event.status });
+      const statusMessages: Record<string, string> = {
+        failed: "Quy trình thẩm định bị lỗi trong quá trình xử lý. Vui lòng kiểm tra lại dữ liệu hồ sơ và thử lại.",
+        manual_intervention_required: "Hồ sơ yêu cầu kiểm duyệt thủ công từ cấp phê duyệt trước khi tiếp tục.",
+      };
+      if (event.status === "failed" || event.status === "manual_intervention_required") {
+        set({ phase: "error", runId: event.runId, error: statusMessages[event.status] ?? event.status });
+      }
       return;
     }
 

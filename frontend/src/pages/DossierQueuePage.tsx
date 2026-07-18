@@ -52,7 +52,7 @@ export const DossierQueuePage = () => {
     <>
       <Header
         eyebrow={role === "CUSTOMER" ? "Hồ sơ của tôi" : "Hàng đợi xét duyệt"}
-        title={role === "CUSTOMER" ? "Trạng thái hồ sơ vay" : "Hồ sơ chờ chuyên viên duyệt"}
+        title={role === "CUSTOMER" ? "Trạng thái hồ sơ vay" : "Hồ sơ chờ duyệt"}
         subtitle={role === "CUSTOMER" ? "Theo dõi tiến độ xử lý hồ sơ." : "Lọc theo trạng thái và loại vay. Bấm vào một hồ sơ để xem chi tiết giấy tờ, kết quả OCR và đánh giá sơ bộ."}
       />
 

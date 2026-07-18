@@ -19,6 +19,7 @@ const errorCode = (error: unknown): string | undefined => {
 export const toPublicOrchestrationError = (error: unknown): PublicOrchestrationError => {
   const code = errorCode(error);
   const name = error instanceof Error ? error.name : undefined;
+  const message = error instanceof Error ? error.message : String(error);
 
   if (name === "TimeoutError" || name === "AbortError" || code === "ABORT_ERR") {
     return {
@@ -36,9 +37,21 @@ export const toPublicOrchestrationError = (error: unknown): PublicOrchestrationE
     };
   }
 
+  // Known business-logic errors — surface the real message instead of a generic one
+  const knownBusinessErrors: Record<string, string> = {
+    INTERRUPTED_WITHOUT_APPROVAL_RECORD: "Workflow bị gián đoạn: không tìm thấy bản ghi phê duyệt tương ứng. Vui lòng thử lại hoặc kiểm tra trạng thái approval gate.",
+    MARITAL_STATUS_INVALID: "Trạng thái hôn nhân không hợp lệ trong hồ sơ trích xuất.",
+  };
+
+  for (const [key, friendlyMsg] of Object.entries(knownBusinessErrors)) {
+    if (message.includes(key)) {
+      return { code: "INTERNAL_ERROR", message: friendlyMsg, httpStatus: 500 };
+    }
+  }
+
   return {
     code: "INTERNAL_ERROR",
-    message: "Không thể hoàn tất quy trình thẩm định do lỗi hệ thống. Vui lòng thử lại hoặc liên hệ quản trị viên.",
+    message: `Lỗi hệ thống: ${message}`,
     httpStatus: 500,
   };
 };

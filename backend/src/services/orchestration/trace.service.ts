@@ -30,6 +30,10 @@ export const saveOrchestrationRun = async (
   metadata: OrchestrationRunMetadata = {}
 ): Promise<void> => {
   validateStoredResponse(runId, data);
+  const tenantId = metadata.tenantId ?? data.tenantId ?? "bank-default";
+  if (data.tenantId && data.tenantId !== tenantId) {
+    throw new Error(`Run ${runId} tenant mismatch between response payload and database metadata.`);
+  }
   const client = await pgPool.connect();
   try {
     await client.query("BEGIN");
@@ -53,10 +57,10 @@ export const saveOrchestrationRun = async (
         metadata.prompt ?? null,
         metadata.status ?? "COMPLETED",
         JSON.stringify(data),
-        metadata.tenantId ?? "bank-default",
-        metadata.workflowId ?? "loan-pre-approval",
-        metadata.workflowVersion ?? "1.0.0",
-        metadata.configVersion ?? "1.0.0",
+        tenantId,
+        metadata.workflowId ?? null,
+        metadata.workflowVersion ?? null,
+        metadata.configVersion ?? null,
       ]
     );
     if (result.rowCount !== 1 || !result.rows[0]) {

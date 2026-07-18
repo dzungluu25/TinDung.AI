@@ -18,6 +18,7 @@ const initialProperty = (): Property => ({ type: "apartment", value: "", status:
 const positiveNumber = (value: string) => Number(value) > 0;
 const nonNegativeNumber = (value: string) => value !== "" && Number(value) >= 0;
 
+
 export const PromptComposer = () => {
   const { run, phase } = useAgentStream();
   const isRunning = phase === "running";

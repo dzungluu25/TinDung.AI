@@ -13,9 +13,9 @@ export const DashboardPage = () => {
   return (
     <>
       <Header
-        eyebrow="AI credit workspace"
-        title="Thẩm định hồ sơ, từ yêu cầu đến quyết định."
-        subtitle="Mô tả hồ sơ tín dụng bằng ngôn ngữ tự nhiên để nhận kết quả thẩm định rủi ro và tuân thủ."
+        eyebrow="Tín dụng bán lẻ · NAT FIGURE"
+        title="Phân tích hồ sơ vay"
+        subtitle="Nhập thông tin khách hàng — hệ thống multi-agent trích xuất rủi ro, kiểm tra tuân thủ và trình kết quả thẩm định theo thời gian thực."
       />
 
       <div className={styles.summaryBar}>

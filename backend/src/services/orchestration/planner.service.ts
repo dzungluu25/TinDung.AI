@@ -16,7 +16,7 @@ import { decisionPolicy } from "../../config/policy";
 import { randomUUID } from "crypto";
 import { resolveRuntimeBinding } from "../platform/runtime-binding.service";
 import { Command } from "@langchain/langgraph";
-import { getLatestApproval } from "../platform/approval.service";
+import { getLatestApproval, ensurePendingApproval } from "../platform/approval.service";
 import { getTenantConfigVersion } from "../platform/tenant-config.service";
 import { pgQuery } from "../../config/pg";
 import { getFptMarketplaceClient } from "../../config/fpt-marketplace";
@@ -85,8 +85,10 @@ const buildOrchestrationResponse = async (
   caseId: string,
   retailCase: RetailCase,
   approvalToken: string | undefined,
-  finalState: OrchestrationState
+  finalState: OrchestrationState,
+  fallbackTenantId?: string
 ): Promise<OrchestrationResponse> => {
+  const resolvedTenantId = finalState.tenantId ?? fallbackTenantId ?? "bank-default";
   if (finalState.terminalReason === "BLOCKED") {
     const traces = assembleTraces(finalState);
     const transparentAnswer = buildAnswerTransparency(
@@ -132,11 +134,21 @@ const buildOrchestrationResponse = async (
 
   const graphInterrupts=(finalState as OrchestrationState & {__interrupt__?:unknown[]}).__interrupt__;
   if(Array.isArray(graphInterrupts)&&graphInterrupts.length){
-    const approval=await getLatestApproval(finalState.tenantId,runId);
-    if(!approval) throw new Error("INTERRUPTED_WITHOUT_APPROVAL_RECORD");
+    // If no approval record exists yet (interrupt fired before any agent node created one),
+    // auto-create a pending record so the UI can display the approval gate correctly.
+    const approval = await getLatestApproval(resolvedTenantId, runId) ??
+      await ensurePendingApproval({
+        tenantId: resolvedTenantId,
+        runId,
+        checkpointId: runId,
+        workflowId: finalState.workflowId ?? "loan-pre-approval",
+        workflowVersion: finalState.workflowVersion ?? "1.2.0",
+        requiredRole: "CREDIT_APPROVER",
+        expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+      });
     const traces=maskPiiPayload(assembleTraces(finalState)) as AgentTrace[];
-    const response:OrchestrationResponse={mode:"CREDIT_APPRAISAL",runId,tenantId:finalState.tenantId,workflowId:finalState.workflowId,workflowVersion:finalState.workflowVersion,configVersion:finalState.configVersion,finalAnswer:"[CHỜ PHÊ DUYỆT] Workflow đã được checkpoint và tạm dừng trước thao tác nghiệp vụ.",reasoning:"Human approval gate đã tạm dừng LangGraph; chưa có action nào được thực hiện.",traces,approvalTicketId:approval.id,pendingApproval:approval,auditEvents:await getAuditEventsByRun(runId)};
-    await saveOrchestrationRun(runId,response,{caseId,prompt:finalState.prompt,status:"paused",tenantId:finalState.tenantId,workflowId:finalState.workflowId,workflowVersion:finalState.workflowVersion,configVersion:finalState.configVersion});
+    const response:OrchestrationResponse={mode:"CREDIT_APPRAISAL",runId,tenantId:resolvedTenantId,workflowId:finalState.workflowId,workflowVersion:finalState.workflowVersion,configVersion:finalState.configVersion,finalAnswer:"[CHỜ PHÊ DUYỆT] Workflow đã được checkpoint và tạm dừng trước thao tác nghiệp vụ.",reasoning:"Human approval gate đã tạm dừng LangGraph; chưa có action nào được thực hiện.",traces,approvalTicketId:approval.id,pendingApproval:approval,auditEvents:await getAuditEventsByRun(runId)};
+    await saveOrchestrationRun(runId,response,{caseId,prompt:finalState.prompt,status:"paused",tenantId:resolvedTenantId,workflowId:finalState.workflowId,workflowVersion:finalState.workflowVersion,configVersion:finalState.configVersion});
     return response;
   }
 
@@ -290,6 +302,7 @@ const runSecurityBlockedFlow = async (
   const response: OrchestrationResponse = {
     mode: "CREDIT_APPRAISAL",
     runId,
+    tenantId,
     finalAnswer: transparentAnswer.finalAnswer,
     reasoning: "Security Gate phát hiện chỉ thị ghi đè có thể điều khiển model. Luồng dừng trước intent classifier, case router, MCP và mọi agent nghiệp vụ.",
     traces,
@@ -382,7 +395,7 @@ export const executeOrchestration = async (
   );
   finalState=await attachInterruptMetadata(runId,finalState);
 
-  return buildOrchestrationResponse(runId, caseId, retailCase, approvalToken, finalState);
+  return buildOrchestrationResponse(runId, caseId, retailCase, approvalToken, finalState, tenantId);
 };
 
 /**
@@ -490,7 +503,7 @@ export const streamOrchestration = async (
   }
 
   finalState=await attachInterruptMetadata(runId,finalState);
-  const response = await buildOrchestrationResponse(runId, caseId, retailCase, approvalToken, finalState);
+  const response = await buildOrchestrationResponse(runId, caseId, retailCase, approvalToken, finalState, tenantId);
   if(response.pendingApproval)onEvent({type:"approval",runId,approval:response.pendingApproval});
   for(const result of response.actionResults??[])onEvent({type:"action",runId,result});
   for(const result of response.compensationResults??[])onEvent({type:"compensation",runId,result});

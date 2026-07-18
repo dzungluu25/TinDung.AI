@@ -155,6 +155,14 @@ export type CaseExtractionResult = CaseExtractionSuccess | CaseExtractionNeedsIn
 
 const isNonEmptyString = (value: unknown): value is string => typeof value === "string" && value.trim().length > 0;
 
+/** Map common LLM output variants (including Vietnamese) to canonical enum values. */
+const normalizeMaritalStatus = (raw: unknown): "single" | "married" | null => {
+  const s = String(raw ?? "").toLowerCase().trim();
+  if (["single", "độc thân", "cũ", "chưa kết hôn", "unmarried"].includes(s)) return "single";
+  if (["married", "đã kết hôn", "kết hôn", "vợ/chồng", "có gia đình"].includes(s)) return "married";
+  return null;
+};
+
 const validateExtractedCase = (value: unknown): Omit<RetailCase, "caseId" | "customerId"> => {
   if (!value || typeof value !== "object") throw new Error("Extracted case is not an object.");
   const raw = value as Record<string, unknown>;
@@ -163,7 +171,8 @@ const validateExtractedCase = (value: unknown): Omit<RetailCase, "caseId" | "cus
   if (!demographic) throw new Error("Demographic object is missing.");
   if (!isNonEmptyString(demographic.name)) throw new Error(`Name is invalid: ${JSON.stringify(demographic.name)}`);
   if (typeof demographic.age !== "number") throw new Error(`Age is invalid (not a number): ${JSON.stringify(demographic.age)} (${typeof demographic.age})`);
-  if (!MARITAL_STATUSES.has(String(demographic.maritalStatus))) throw new Error(`Marital status is invalid: ${JSON.stringify(demographic.maritalStatus)}`);
+  const maritalStatus = normalizeMaritalStatus(demographic.maritalStatus);
+  if (!maritalStatus) throw new Error(`Marital status is invalid: received ${JSON.stringify(demographic.maritalStatus)} — expected one of: single, married, độc thân, đã kết hôn`);
   if (!isNonEmptyString(demographic.cccd)) throw new Error(`CCCD is invalid: ${JSON.stringify(demographic.cccd)}`);
   if (!isNonEmptyString(demographic.phone)) throw new Error(`Phone is invalid: ${JSON.stringify(demographic.phone)}`);
   if (!isNonEmptyString(demographic.email)) throw new Error(`Email is invalid: ${JSON.stringify(demographic.email)}`);
@@ -286,7 +295,7 @@ const validateExtractedCase = (value: unknown): Omit<RetailCase, "caseId" | "cus
     demographic: {
       name: demographic.name as string,
       age: demographic.age as number,
-      maritalStatus: demographic.maritalStatus as "single" | "married",
+      maritalStatus: maritalStatus,
       cccd: demographic.cccd as string,
       phone: demographic.phone as string,
       email: demographic.email as string,

@@ -88,14 +88,40 @@ export const saveRunAsDossier = async (tenantId: string, runId: string, actor: s
     );
     if (!checklist.rows[0]) throw new Error("CHECKLIST_NOT_PUBLISHED");
 
+    // A saved run enters the review queue immediately, so it must carry the
+    // organizational scope used by buildDossierScopePredicate. Without these
+    // values the insert succeeds, but officers/approvers cannot list the row.
+    const actorProfile = await client.query<{ branch_id: string | null; team_id: string | null }>(
+      `SELECT branch_id,team_id FROM app_users
+       WHERE tenant_id=$1 AND user_id=$2 AND status='ACTIVE'`,
+      [tenantId, actor]
+    );
+    if (!actorProfile.rows[0]) throw new Error("DOSSIER_ACTOR_NOT_FOUND");
+
     const dossierId = `dossier-${randomUUID()}`;
     const now = new Date().toISOString();
     const inserted = await client.query(
-      `INSERT INTO loan_dossiers (dossier_id,tenant_id,customer_id,customer_email,case_id,run_id,loan_type,checklist_version,status,created_by,created_at,updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'PENDING_REVIEW',$9,$10,$10)
-       ON CONFLICT (run_id) WHERE run_id IS NOT NULL DO UPDATE SET run_id=EXCLUDED.run_id
+      `INSERT INTO loan_dossiers (dossier_id,tenant_id,customer_id,customer_email,branch_id,team_id,case_id,run_id,loan_type,checklist_version,status,created_by,created_at,updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'PENDING_REVIEW',$11,$12,$12)
+       ON CONFLICT (run_id) WHERE run_id IS NOT NULL DO UPDATE SET
+         run_id=EXCLUDED.run_id,
+         branch_id=COALESCE(loan_dossiers.branch_id,EXCLUDED.branch_id),
+         team_id=COALESCE(loan_dossiers.team_id,EXCLUDED.team_id)
        RETURNING *`,
-      [dossierId, tenantId, row.customer_id, customerEmail, row.case_id, runId, loanType, checklist.rows[0].version, actor, now]
+      [
+        dossierId,
+        tenantId,
+        row.customer_id,
+        customerEmail,
+        actorProfile.rows[0].branch_id,
+        actorProfile.rows[0].team_id,
+        row.case_id,
+        runId,
+        loanType,
+        checklist.rows[0].version,
+        actor,
+        now,
+      ]
     );
     await client.query(
       `UPDATE orchestration_runs SET saved_at=COALESCE(saved_at,NOW()),saved_by=COALESCE(saved_by,$3)

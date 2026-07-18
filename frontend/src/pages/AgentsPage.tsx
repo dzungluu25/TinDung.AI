@@ -12,7 +12,7 @@ export const AgentsPage = () => {
 
   return (
     <>
-      <Header eyebrow="Orchestration observability" title="Theo dõi từng quyết định của Agent" subtitle="Quan sát state graph, tool calls và bằng chứng được tạo trong toàn bộ phiên thẩm định." />
+      <Header eyebrow="Orchestration observability" title="Theo dõi workflow của Agent" subtitle="Quan sát state graph, tool calls và bằng chứng được tạo trong toàn bộ phiên thẩm định." />
       <div className={styles.stats}>
         <div><Activity size={17} /><span><small>Trạng thái</small><strong>{phase === "running" ? "Đang chạy" : phase === "done" ? "Hoàn tất" : "Sẵn sàng"}</strong></span></div>
         <div><GitBranch size={17} /><span><small>Risk lane</small><strong>{riskTier ?? "Chưa phân loại"}</strong></span></div>

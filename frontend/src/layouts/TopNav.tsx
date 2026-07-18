@@ -1,4 +1,4 @@
-import { Activity, BrainCircuit, ChartNoAxesCombined, ClipboardList, SlidersHorizontal, Sparkles } from "lucide-react";
+import { BrainCircuit, ChartNoAxesCombined, ClipboardList, SlidersHorizontal, Sparkles } from "lucide-react";
 import { Link, NavLink } from "react-router-dom";
 import { useSessionStore } from "../store/sessionStore";
 import type { UserRole } from "../types/api";
@@ -19,10 +19,18 @@ export const TopNav = () => {
   <header className={styles.header}>
     <div className={styles.inner}>
       <Link to="/" className={styles.brand} aria-label="Về trang chủ">
-        <span className={styles.mark}><Activity size={19} strokeWidth={2.4} /></span>
+        <span className={styles.mark}>
+          {/* NAT FIGURE geometric logo mark */}
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect x="2" y="2" width="7" height="7" rx="1.5" fill="currentColor" opacity="1"/>
+            <rect x="11" y="2" width="7" height="7" rx="1.5" fill="currentColor" opacity="0.55"/>
+            <rect x="2" y="11" width="7" height="7" rx="1.5" fill="currentColor" opacity="0.55"/>
+            <rect x="11" y="11" width="7" height="7" rx="1.5" fill="currentColor" opacity="0.25"/>
+          </svg>
+        </span>
         <span>
-          <strong>VAIC</strong>
-          <small>Credit Intelligence</small>
+          <strong>NAT FIGURE</strong>
+          <small>VAIC 2026</small>
         </span>
       </Link>
 

@@ -145,7 +145,7 @@ export const PolicyConsolePage = () => {
     if (fetchError) {
       return (
         <>
-          <Header eyebrow="Bank policy console · Cho vay cá nhân" title="Căn cứ chính sách cho thẩm định viên" subtitle="Gặp sự cố khi tải dữ liệu từ máy chủ." />
+          <Header eyebrow="Chính sách tín dụng · NAT FIGURE" title="Cấu hình chính sách xét duyệt" subtitle="Gặp sự cố khi tải dữ liệu từ máy chủ." />
           <div style={{ padding: "20px", color: "var(--color-danger)", background: "var(--color-danger-soft)", borderRadius: "8px", margin: "20px 0" }}>
             <strong>Không thể tải chính sách hiện tại:</strong> {fetchError}
           </div>
@@ -154,7 +154,7 @@ export const PolicyConsolePage = () => {
     }
     return (
       <>
-        <Header eyebrow="Bank policy console · Cho vay cá nhân" title="Căn cứ chính sách cho thẩm định viên" subtitle="Đang tải chính sách hiện hành…" />
+        <Header eyebrow="Chính sách tín dụng · NAT FIGURE" title="Cấu hình chính sách xét duyệt" subtitle="Đang tải chính sách hiện hành…" />
         <div className={styles.grid}>
           {[0, 1, 2, 3].map(i => (
             <Card key={i} title={<Skeleton width={160} height={14} />}>
@@ -203,9 +203,9 @@ export const PolicyConsolePage = () => {
   return (
     <>
       <Header
-        eyebrow="Bank policy console · Cho vay cá nhân"
-        title="Căn cứ chính sách cho thẩm định viên"
-        subtitle="Quy định NHNN bắt buộc khi thẩm định hồ sơ vay cá nhân, cộng với chính sách xét duyệt riêng mà ngân hàng của bạn có thể tự tùy chỉnh trong khuôn khổ đó."
+        eyebrow="Chính sách tín dụng · NAT FIGURE"
+        title="Cấu hình chính sách xét duyệt"
+        subtitle="Tham số rủi ro và tuân thủ áp dụng cho toàn bộ quy trình thẩm định. Thay đổi có hiệu lực ngay sau khi xuất bản."
         action={
           <span className={styles.currentVersion}>
             <ShieldCheck size={14} />
