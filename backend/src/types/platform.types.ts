@@ -5,7 +5,24 @@ export interface WorkflowEdge { from: string; to: string; condition?: string; fa
 export interface WorkflowDefinition { id: string; tenantId: string; name: string; nodes: WorkflowNode[]; edges: WorkflowEdge[]; }
 export interface WorkflowVersion { workflowId: string; tenantId: string; version: string; status: WorkflowStatus; definition: WorkflowDefinition; effectiveFrom?: string; createdBy: string; createdAt: string; publishedBy?: string; publishedAt?: string; }
 export interface CitationPolicy { required: boolean; rejectIfMissing: boolean; minimumConfidence: number; allowedSourceTypes: string[]; }
-export interface TenantRuntimeConfig { tenantId: string; version: string; thresholds: { minCreditScore: number; maxDti: number }; runtime: { maxRetriesPerAgent: number; maxSteps: number; maxTokens: number; timeoutSeconds: number }; allowedModels: string[]; citationPolicy: CitationPolicy; effectiveFrom: string; updatedBy: string; }
+export interface TenantRuntimeConfig {
+  tenantId: string;
+  version: string;
+  thresholds: {
+    minCreditScore: number;
+    maxDti: number;
+    maxLtvByPropertyType: { apartment: number; house: number; land: number };
+    minimumMonthlyLivingExpenseVnd: number;
+    incomeHaircuts: { salary: number; freelance: number; rental: number };
+    maximumRepaymentAgeMargin: number;
+    fraud: { incomeDebtRatioCeiling: number; collateralValueToLoanCeiling: number };
+  };
+  runtime: { maxRetriesPerAgent: number; maxSteps: number; maxTokens: number; timeoutSeconds: number };
+  allowedModels: string[];
+  citationPolicy: CitationPolicy;
+  effectiveFrom: string;
+  updatedBy: string;
+}
 export type SecurityScreeningStatus = "accepted" | "sanitized" | "rejected" | "requires_manual_review";
 export interface SecurityScreeningResult { status: SecurityScreeningStatus; sanitizedInput: string; signals: string[]; containsPii: boolean; }
 export type ValidationIssueCode = "INVALID_SCHEMA" | "MISSING_CITATION" | "INVALID_SOURCE" | "OUTDATED_SOURCE" | "UNSUPPORTED_CLAIM" | "SOURCE_CONFLICT" | "LOW_CONFIDENCE" | "BUSINESS_RULE_FAILED" | "LEGAL_VIOLATION" | "RETRY_EXCEEDED";

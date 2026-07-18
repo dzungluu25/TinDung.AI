@@ -1,13 +1,21 @@
 import { AgentTrace } from "../../types/trace.types";
-import { calculateIncomeAfterHaircut, calculateCurrentMonthlyDebt } from "../calculators/dti.calculator";
+import { calculateIncomeAfterHaircut, calculateCurrentMonthlyDebt, applyLivingExpenseFloor } from "../calculators/dti.calculator";
 import { evaluateCreditRules } from "../rules/credit-rule-engine";
 import { loadRetailCase } from "../data/retail-case-loader";
+import { RetailCase } from "../../types/case.types";
+
+export interface CreditAgentPolicyOverrides {
+  maximumDtiPercent?: number;
+  maximumLtvPercentByPropertyType?: Record<RetailCase["property"]["type"], number>;
+  incomeRecognitionFactors?: Record<"salary" | "freelance" | "rental", number>;
+  minimumMonthlyLivingExpenseVnd?: number;
+}
 
 export const runCreditAgent = async (
   runId: string,
   caseId: string,
   tenantId = "bank-default",
-  maximumDtiPercent?:number
+  overrides: CreditAgentPolicyOverrides = {}
 ): Promise<AgentTrace> => {
   const startedAt = new Date().toISOString();
 
@@ -27,12 +35,16 @@ export const runCreditAgent = async (
     };
   }
 
-  const validIncome = calculateIncomeAfterHaircut(retailCase.incomeSources);
+  const validIncome = calculateIncomeAfterHaircut(retailCase.incomeSources, overrides.incomeRecognitionFactors);
+  const disposableIncome = applyLivingExpenseFloor(validIncome, overrides.minimumMonthlyLivingExpenseVnd);
   const currentMonthlyDebt = calculateCurrentMonthlyDebt(retailCase.currentDebts);
 
-  const assessment = evaluateCreditRules(runId, validIncome, currentMonthlyDebt, retailCase,{maximumDtiPercent});
+  const assessment = evaluateCreditRules(runId, disposableIncome, currentMonthlyDebt, retailCase, {
+    maximumDtiPercent: overrides.maximumDtiPercent,
+    maximumLtvPercentByPropertyType: overrides.maximumLtvPercentByPropertyType
+  });
 
-  const summary = `Đã phân tích báo cáo tài chính rủi ro. Thu nhập hợp lệ sau giảm trừ (Haircut): ${validIncome.toLocaleString()} VND. Tổng nợ phải trả hàng tháng hiện tại: ${currentMonthlyDebt.toLocaleString()} VND. Trạng thái phân vùng thẩm định: [${assessment.creditDecision}].`;
+  const summary = `Đã phân tích báo cáo tài chính rủi ro. Thu nhập hợp lệ sau giảm trừ (Haircut): ${validIncome.toLocaleString()} VND, sau khi trừ chi phí sinh hoạt tối thiểu còn ${disposableIncome.toLocaleString()} VND. Tổng nợ phải trả hàng tháng hiện tại: ${currentMonthlyDebt.toLocaleString()} VND. Trạng thái phân vùng thẩm định: [${assessment.creditDecision}].`;
 
   return {
     id: `trace-credit-${Date.now()}`,
@@ -49,6 +61,12 @@ export const runCreditAgent = async (
         status: "success"
       },
       {
+        toolName: "applyLivingExpenseFloor",
+        input: { validIncome, minimumMonthlyLivingExpenseVnd: overrides.minimumMonthlyLivingExpenseVnd },
+        output: { disposableIncome },
+        status: "success"
+      },
+      {
         toolName: "calculateCurrentMonthlyDebt",
         input: { debts: retailCase.currentDebts },
         output: { currentMonthlyDebt },
@@ -56,7 +74,7 @@ export const runCreditAgent = async (
       },
       {
         toolName: "evaluateCreditRules",
-        input: { validIncome, currentMonthlyDebt, requestedLoan: retailCase.requestedLoan },
+        input: { validIncome: disposableIncome, currentMonthlyDebt, requestedLoan: retailCase.requestedLoan },
         output: assessment as unknown as Record<string, unknown>,
         status: "success"
       }

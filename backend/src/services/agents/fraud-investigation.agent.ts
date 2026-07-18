@@ -13,6 +13,12 @@ interface FraudCheckOutcome {
   evidence: Record<string, unknown>;
 }
 
+export interface FraudPolicyOverrides {
+  incomeDebtRatioCeiling?: number;
+  collateralValueToLoanCeiling?: number;
+  minimumRepaymentAgeMargin?: number;
+}
+
 /**
  * Deterministic outlier checks, not an LLM — same "rule engine + evidence" philosophy as
  * credit-rule-engine.ts. This is the anomaly-detection capability the brief asks to move
@@ -20,8 +26,11 @@ interface FraudCheckOutcome {
  * catch-all safety net and can flip the final decision to HUMAN_ESCALATION, not just get
  * logged for later review.
  */
-const runFraudChecks = (retailCase: RetailCase): FraudCheckOutcome[] => {
+const runFraudChecks = (retailCase: RetailCase, overrides: FraudPolicyOverrides = {}): FraudCheckOutcome[] => {
   const policy = decisionPolicy.fraud;
+  const incomeDebtRatioCeiling = overrides.incomeDebtRatioCeiling ?? policy.incomeDebtRatioCeiling;
+  const collateralValueToLoanCeiling = overrides.collateralValueToLoanCeiling ?? policy.collateralValueToLoanCeiling;
+  const minimumRepaymentAgeMargin = overrides.minimumRepaymentAgeMargin ?? policy.minimumRepaymentAgeMargin;
   const validIncome = calculateIncomeAfterHaircut(retailCase.incomeSources);
   const currentMonthlyDebt = calculateCurrentMonthlyDebt(retailCase.currentDebts);
 
@@ -34,8 +43,8 @@ const runFraudChecks = (retailCase: RetailCase): FraudCheckOutcome[] => {
   const incomeDebtRatio = validIncome > 0 ? outstandingDebt / validIncome : Infinity;
   checks.push({
     ruleId: policy.ruleIds.incomeDebtMismatch,
-    triggered: incomeDebtRatio > policy.incomeDebtRatioCeiling,
-    detail: `Tỷ lệ tổng dư nợ hiện tại / thu nhập hợp lệ hàng tháng: ${incomeDebtRatio === Infinity ? "vô hạn (không có thu nhập hợp lệ)" : incomeDebtRatio.toFixed(1)}x, ngưỡng cảnh báo: ${policy.incomeDebtRatioCeiling}x.`,
+    triggered: incomeDebtRatio > incomeDebtRatioCeiling,
+    detail: `Tỷ lệ tổng dư nợ hiện tại / thu nhập hợp lệ hàng tháng: ${incomeDebtRatio === Infinity ? "vô hạn (không có thu nhập hợp lệ)" : incomeDebtRatio.toFixed(1)}x, ngưỡng cảnh báo: ${incomeDebtRatioCeiling}x.`,
     evidence: { outstandingDebt, validIncome, incomeDebtRatio: Number.isFinite(incomeDebtRatio) ? Number(incomeDebtRatio.toFixed(2)) : null },
   });
 
@@ -45,15 +54,15 @@ const runFraudChecks = (retailCase: RetailCase): FraudCheckOutcome[] => {
   const collateralRatio = retailCase.requestedLoan.amount > 0 ? retailCase.property.value / retailCase.requestedLoan.amount : Infinity;
   checks.push({
     ruleId: policy.ruleIds.collateralValueOutlier,
-    triggered: collateralRatio > policy.collateralValueToLoanCeiling,
-    detail: `Tỷ lệ giá trị tài sản thế chấp / khoản vay đề xuất: ${collateralRatio === Infinity ? "vô hạn" : collateralRatio.toFixed(1)}x, ngưỡng cảnh báo: ${policy.collateralValueToLoanCeiling}x.`,
+    triggered: collateralRatio > collateralValueToLoanCeiling,
+    detail: `Tỷ lệ giá trị tài sản thế chấp / khoản vay đề xuất: ${collateralRatio === Infinity ? "vô hạn" : collateralRatio.toFixed(1)}x, ngưỡng cảnh báo: ${collateralValueToLoanCeiling}x.`,
     evidence: { propertyValue: retailCase.property.value, loanAmount: retailCase.requestedLoan.amount, collateralRatio: Number.isFinite(collateralRatio) ? Number(collateralRatio.toFixed(2)) : null },
   });
 
   // Loan tenure that runs the applicant past a normal working lifetime without any
   // explicit affordability note is a repayment-capacity red flag independent of DTI.
   const ageAtMaturity = retailCase.demographic.age + retailCase.requestedLoan.tenureYears;
-  const maturityCeiling = 65 + policy.minimumRepaymentAgeMargin;
+  const maturityCeiling = 65 + minimumRepaymentAgeMargin;
   checks.push({
     ruleId: policy.ruleIds.ageTenureMismatch,
     triggered: ageAtMaturity > maturityCeiling,
@@ -80,7 +89,12 @@ const runFraudChecks = (retailCase: RetailCase): FraudCheckOutcome[] => {
   return checks;
 };
 
-export const runFraudInvestigationAgent = async (runId: string, caseId: string, tenantId = "bank-default"): Promise<AgentTrace> => {
+export const runFraudInvestigationAgent = async (
+  runId: string,
+  caseId: string,
+  tenantId = "bank-default",
+  overrides: FraudPolicyOverrides = {}
+): Promise<AgentTrace> => {
   const startedAt = new Date().toISOString();
   const retailCase = await loadRetailCase(caseId, tenantId);
 
@@ -98,7 +112,7 @@ export const runFraudInvestigationAgent = async (runId: string, caseId: string, 
     };
   }
 
-  const checks = runFraudChecks(retailCase);
+  const checks = runFraudChecks(retailCase, overrides);
   const triggered = checks.filter(check => check.triggered);
 
   const toolCalls: ToolCallTrace[] = [

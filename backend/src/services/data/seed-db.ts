@@ -89,9 +89,28 @@ export const seedDatabases = async () => {
     await pgQuery(`CREATE TABLE IF NOT EXISTS action_executions (seq BIGSERIAL PRIMARY KEY, tenant_id VARCHAR(100) NOT NULL, run_id VARCHAR(50) NOT NULL, step_id VARCHAR(100) NOT NULL, idempotency_key VARCHAR(300) NOT NULL, status VARCHAR(30) NOT NULL, attempts INTEGER NOT NULL, result JSONB, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), UNIQUE (tenant_id,idempotency_key));`);
 
     const bootstrapWorkflow = { id:"loan-pre-approval",tenantId:"bank-default",name:"Loan pre-approval",nodes:[{id:"start",type:"start"},{id:"planner",type:"planner"},{id:"credit",type:"agent",outputSchema:{type:"object"},citationRequired:true,retryLimit:2},{id:"human-gate",type:"human_gate"},{id:"action",type:"action",risk:"high",allowedTools:["reserveCreditLimit","createLoanCase","createRmTask","updateCrmStatus","sendRejectionNotification","escalateCreditCommittee"],compensationNodeId:"compensate"},{id:"compensate",type:"compensation"},{id:"end",type:"end"}],edges:[{from:"start",to:"planner"},{from:"planner",to:"credit"},{from:"credit",to:"human-gate",condition:"requiresApproval",fallback:true},{from:"human-gate",to:"action"},{from:"action",to:"end"}] };
-    await pgQuery(`INSERT INTO workflow_versions (tenant_id,workflow_id,version,status,definition,created_by,created_at,published_by,published_at) VALUES ('bank-default','loan-pre-approval','1.2.0','published',$1,'system',NOW(),'system',NOW()) ON CONFLICT (tenant_id,workflow_id,version) DO NOTHING`,[bootstrapWorkflow]);
-    const bootstrapConfig = {tenantId:"bank-default",version:"1.0.0",thresholds:{minCreditScore:650,maxDti:0.45},runtime:{maxRetriesPerAgent:2,maxSteps:100,maxTokens:50000,timeoutSeconds:90},allowedModels:[process.env.FPT_PLANNER_MODEL||"approved-default"],citationPolicy:{required:true,rejectIfMissing:true,minimumConfidence:0.8,allowedSourceTypes:["LAW","DECREE","CIRCULAR","INTERNAL_POLICY","STANDARD"]},effectiveFrom:"2026-01-01T00:00:00.000Z",updatedBy:"system"};
-    await pgQuery(`INSERT INTO tenant_runtime_configs (tenant_id,version,payload,effective_from,updated_by) VALUES ('bank-default','1.0.0',$1,$2,'system') ON CONFLICT (tenant_id,version) DO NOTHING`,[bootstrapConfig,bootstrapConfig.effectiveFrom]);
+    const existingWorkflow = await pgQuery(
+      `SELECT 1 FROM workflow_versions WHERE tenant_id = $1 AND workflow_id = $2 AND version = $3`,
+      ["bank-default", "loan-pre-approval", "1.2.0"]
+    );
+    if (existingWorkflow.rowCount === 0) {
+      await pgQuery(`INSERT INTO workflow_versions (tenant_id,workflow_id,version,status,definition,created_by,created_at,published_by,published_at) VALUES ('bank-default','loan-pre-approval','1.2.0','published',$1,'system',NOW(),'system',NOW()) ON CONFLICT (tenant_id,workflow_id,version) DO NOTHING`,[bootstrapWorkflow]);
+      console.log("Seeded bootstrap workflow_versions row (bank-default/loan-pre-approval/1.2.0).");
+    } else {
+      console.log("Skipping workflow_versions seed: bank-default/loan-pre-approval/1.2.0 already exists.");
+    }
+
+    const bootstrapConfig = {tenantId:"bank-default",version:"1.0.0",thresholds:{minCreditScore:650,maxDti:0.45,maxLtvByPropertyType:{apartment:80,house:70,land:50},minimumMonthlyLivingExpenseVnd:5000000,incomeHaircuts:{salary:1,freelance:0.5,rental:0.7},maximumRepaymentAgeMargin:0,fraud:{incomeDebtRatioCeiling:15,collateralValueToLoanCeiling:6}},runtime:{maxRetriesPerAgent:2,maxSteps:100,maxTokens:50000,timeoutSeconds:90},allowedModels:[process.env.FPT_PLANNER_MODEL||"approved-default"],citationPolicy:{required:true,rejectIfMissing:true,minimumConfidence:0.8,allowedSourceTypes:["LAW","DECREE","CIRCULAR","INTERNAL_POLICY","STANDARD"]},effectiveFrom:"2026-01-01T00:00:00.000Z",updatedBy:"system"};
+    const existingConfig = await pgQuery(
+      `SELECT 1 FROM tenant_runtime_configs WHERE tenant_id = $1 AND version = $2`,
+      ["bank-default", "1.0.0"]
+    );
+    if (existingConfig.rowCount === 0) {
+      await pgQuery(`INSERT INTO tenant_runtime_configs (tenant_id,version,payload,effective_from,updated_by) VALUES ('bank-default','1.0.0',$1,$2,'system') ON CONFLICT (tenant_id,version) DO NOTHING`,[bootstrapConfig,bootstrapConfig.effectiveFrom]);
+      console.log("Seeded bootstrap tenant_runtime_configs row (bank-default/1.0.0).");
+    } else {
+      console.log("Skipping tenant_runtime_configs seed: bank-default/1.0.0 already exists.");
+    }
 
     // Create the append-only, hash-chained audit log table required for regulatory audit trails.
     await pgQuery(`

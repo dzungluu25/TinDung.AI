@@ -6,3 +6,9 @@ export const calculateLtv = (loanAmount: number, propertyValue: number): number 
   if (propertyValue <= 0) return 0;
   return Number(((loanAmount / propertyValue) * 100).toFixed(2));
 };
+
+/** Resolves the applicable LTV ceiling for a collateral type, e.g. apartments are allowed higher leverage than raw land. */
+export const resolveMaximumLtvPercent = (
+  propertyType: "apartment" | "house" | "land",
+  maximumLtvPercentByPropertyType: Record<"apartment" | "house" | "land", number>
+): number => maximumLtvPercentByPropertyType[propertyType];

@@ -12,6 +12,11 @@
     "stressAnnualRate": 0.135,
     "maximumDtiPercent": 60,
     "maximumLtvPercent": 70,
+    "maximumLtvPercentByPropertyType": {
+      "apartment": 80,
+      "house": 70,
+      "land": 50
+    },
     "maximumMortgageTenureYears": 30,
     "autoRefinanceTenureYears": 8,
     "creditLimitReductionFactor": 0.5,
@@ -21,6 +26,7 @@
       "freelance": 0.5,
       "rental": 0.7
     },
+    "minimumMonthlyLivingExpenseVnd": 5000000,
     "ruleIds": {
       "incomeCalculated": "CREDIT_VALID_INCOME_CALCULATED",
       "ltvExceeded": "CREDIT_LTV_EXCEEDS_LIMIT",
