@@ -14,7 +14,7 @@ export const DashboardPage = () => {
     <>
       <Header
         eyebrow="Tín dụng bán lẻ · NAT FIGURE"
-        title="Phân tích hồ sơ vay"
+        title="Phân tích hồ sơ"
         subtitle="Nhập thông tin khách hàng — hệ thống multi-agent trích xuất rủi ro, kiểm tra tuân thủ và trình kết quả thẩm định theo thời gian thực."
       />
 
