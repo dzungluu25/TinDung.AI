@@ -473,95 +473,118 @@ export const streamOrchestration = async (
   }
   const securedPrompt = retailCaseInput ? prompt : security.sanitizedInput;
 
-  const binding = await resolveRuntimeBinding(tenantId);
-  let routed: InputRoutingOrExtractionResult;
+  // Gửi event khởi tạo và bắt đầu thiết lập heartbeat mồi dữ liệu (Keep-Alive)
+  onEvent({
+    type: "node_lifecycle",
+    runId,
+    node: "extraction",
+    status: "started",
+    timestamp: new Date().toISOString(),
+  });
 
-  if (retailCaseInput) {
-    routed = await routeStructuredRetailCaseInput(retailCaseInput, tenantId);
-  } else if (!requestedCaseId) {
-    const [intentResult, routedResult] = await Promise.all([
-      classifyIntent(securedPrompt),
-      routeOrExtractInput(securedPrompt, requestedCaseId, tenantId)
-    ]);
-    if (intentResult.intent === "ADVISORY_QA" || intentResult.intent === "OUT_OF_DOMAIN") {
-      const response = await runAdvisoryFlow(runId, securedPrompt, requestedBy, intentResult.intent);
-      onEvent({ type: "advisory_final", response });
+  const heartbeatInterval = setInterval(() => {
+    onEvent({
+      type: "node_lifecycle",
+      runId,
+      node: "extraction",
+      status: "started",
+      timestamp: new Date().toISOString(),
+    });
+  }, 15000);
+
+  try {
+    const binding = await resolveRuntimeBinding(tenantId);
+    let routed: InputRoutingOrExtractionResult;
+
+    if (retailCaseInput) {
+      routed = await routeStructuredRetailCaseInput(retailCaseInput, tenantId);
+    } else if (!requestedCaseId) {
+      const [intentResult, routedResult] = await Promise.all([
+        classifyIntent(securedPrompt),
+        routeOrExtractInput(securedPrompt, requestedCaseId, tenantId)
+      ]);
+      if (intentResult.intent === "ADVISORY_QA" || intentResult.intent === "OUT_OF_DOMAIN") {
+        const response = await runAdvisoryFlow(runId, securedPrompt, requestedBy, intentResult.intent);
+        onEvent({ type: "advisory_final", response });
+        return;
+      }
+      routed = routedResult;
+    } else {
+      routed = await routeOrExtractInput(securedPrompt, requestedCaseId, tenantId);
+    }
+
+    if (!routed.ok) throw new OrchestrationInputError(routed.code, routed.message, routed.questions);
+    const { caseId } = routed;
+    const retailCase = routed.extractedCase ?? await loadRetailCase(caseId, tenantId);
+
+    await recordAuditEvent(runId, requestedBy, "agent_call", { tenantId,prompt:securedPrompt,securityStatus:security.status,caseId,workflowId:binding.workflow.workflowId,workflowVersion:binding.workflow.version,configVersion:binding.config.version }, "allowed", `Chuyên viên ${requestedBy} khởi chạy quy trình điều phối cho caseId: ${caseId}`);
+
+    if (!retailCase) {
+      onEvent({
+        type: "final",
+        response: {
+          runId,
+          finalAnswer: "Không tìm thấy hồ sơ khách hàng tương ứng với yêu cầu.",
+          traces: []
+        }
+      });
       return;
     }
-    routed = routedResult;
-  } else {
-    routed = await routeOrExtractInput(securedPrompt, requestedCaseId, tenantId);
-  }
 
-  if (!routed.ok) throw new OrchestrationInputError(routed.code, routed.message, routed.questions);
-  const { caseId } = routed;
-  const retailCase = routed.extractedCase ?? await loadRetailCase(caseId, tenantId);
-
-  await recordAuditEvent(runId, requestedBy, "agent_call", { tenantId,prompt:securedPrompt,securityStatus:security.status,caseId,workflowId:binding.workflow.workflowId,workflowVersion:binding.workflow.version,configVersion:binding.config.version }, "allowed", `Chuyên viên ${requestedBy} khởi chạy quy trình điều phối cho caseId: ${caseId}`);
-
-  if (!retailCase) {
-    onEvent({
-      type: "final",
-      response: {
+    const stream = await orchestrationGraph.stream(
+      {
         runId,
-        finalAnswer: "Không tìm thấy hồ sơ khách hàng tương ứng với yêu cầu.",
-        traces: []
+        tenantId,
+        workflowId: binding.workflow.workflowId,
+        workflowVersion: binding.workflow.version,
+        configVersion: binding.config.version,
+        workflowAllowsAction: binding.workflow.definition.nodes.some(node=>node.type==="action"),
+        allowedActionTools: binding.workflow.definition.nodes.filter(node=>node.type==="action").flatMap(node=>node.allowedTools??[]),
+        maximumDtiPercent:binding.config.thresholds.maxDti*100,
+        policyThresholds:binding.config.thresholds,
+        maximumModelCalls:decisionPolicy.runtimeBudget.maximumModelCalls,
+        maximumStageCorrections:binding.config.runtime.maxRetriesPerAgent,
+        requestedBy,
+        prompt: securedPrompt,
+        approvalToken,
+        caseId,
+        customerName: retailCase.demographic.name
+      },
+      { configurable: { thread_id: runId }, streamMode: "values", recursionLimit: binding.config.runtime.maxSteps,signal:AbortSignal.timeout(binding.config.runtime.timeoutSeconds*1000) }
+    );
+
+    let previous: Partial<OrchestrationState> = {};
+    let finalState: OrchestrationState | undefined;
+
+    for await (const chunk of stream as AsyncIterable<OrchestrationState>) {
+      for (const key of TRACE_KEYS) {
+        const trace = chunk[key] as AgentTrace | undefined;
+        if (trace && trace !== previous[key]) {
+          // Streaming is an external response path too. Mask before every incremental
+          // event; masking only the final response would leak PII through live traces.
+          const maskedTrace = maskPiiPayload(trace) as AgentTrace;
+          onEvent({ type: "node_update", node: maskedTrace.agent, trace: maskedTrace, riskTier: chunk.riskTier });
+        }
       }
-    });
-    return;
-  }
-
-  const stream = await orchestrationGraph.stream(
-    {
-      runId,
-      tenantId,
-      workflowId: binding.workflow.workflowId,
-      workflowVersion: binding.workflow.version,
-      configVersion: binding.config.version,
-      workflowAllowsAction: binding.workflow.definition.nodes.some(node=>node.type==="action"),
-      allowedActionTools: binding.workflow.definition.nodes.filter(node=>node.type==="action").flatMap(node=>node.allowedTools??[]),
-      maximumDtiPercent:binding.config.thresholds.maxDti*100,
-      policyThresholds:binding.config.thresholds,
-      maximumModelCalls:decisionPolicy.runtimeBudget.maximumModelCalls,
-      maximumStageCorrections:binding.config.runtime.maxRetriesPerAgent,
-      requestedBy,
-      prompt: securedPrompt,
-      approvalToken,
-      caseId,
-      customerName: retailCase.demographic.name
-    },
-    { configurable: { thread_id: runId }, streamMode: "values", recursionLimit: binding.config.runtime.maxSteps,signal:AbortSignal.timeout(binding.config.runtime.timeoutSeconds*1000) }
-  );
-
-  let previous: Partial<OrchestrationState> = {};
-  let finalState: OrchestrationState | undefined;
-
-  for await (const chunk of stream as AsyncIterable<OrchestrationState>) {
-    for (const key of TRACE_KEYS) {
-      const trace = chunk[key] as AgentTrace | undefined;
-      if (trace && trace !== previous[key]) {
-        // Streaming is an external response path too. Mask before every incremental
-        // event; masking only the final response would leak PII through live traces.
-        const maskedTrace = maskPiiPayload(trace) as AgentTrace;
-        onEvent({ type: "node_update", node: maskedTrace.agent, trace: maskedTrace, riskTier: chunk.riskTier });
-      }
+      previous = chunk;
+      finalState = chunk;
     }
-    previous = chunk;
-    finalState = chunk;
-  }
 
-  if (!finalState) {
-    onEvent({ type: "error", message: "Orchestration graph produced no output." });
-    return;
-  }
+    if (!finalState) {
+      onEvent({ type: "error", message: "Orchestration graph produced no output." });
+      return;
+    }
 
-  finalState=await attachInterruptMetadata(runId,finalState);
-  const response = await buildOrchestrationResponse(runId, caseId, retailCase, approvalToken, finalState, tenantId);
-  if(response.pendingApproval)onEvent({type:"approval",runId,approval:response.pendingApproval});
-  for(const result of response.actionResults??[])onEvent({type:"action",runId,result});
-  for(const result of response.compensationResults??[])onEvent({type:"compensation",runId,result});
-  onEvent({type:"terminal",runId,status:response.terminalFailure?"failed":response.manualInterventionRequired?"manual_intervention_required":"completed"});
-  onEvent({ type: "final", response });
+    finalState=await attachInterruptMetadata(runId,finalState);
+    const response = await buildOrchestrationResponse(runId, caseId, retailCase, approvalToken, finalState, tenantId);
+    if(response.pendingApproval)onEvent({type:"approval",runId,approval:response.pendingApproval});
+    for(const result of response.actionResults??[])onEvent({type:"action",runId,result});
+    for(const result of response.compensationResults??[])onEvent({type:"compensation",runId,result});
+    onEvent({type:"terminal",runId,status:response.terminalFailure?"failed":response.manualInterventionRequired?"manual_intervention_required":"completed"});
+    onEvent({ type: "final", response });
+  } finally {
+    clearInterval(heartbeatInterval);
+  }
 };
 
 export const resumeOrchestration=async(runId:string,tenantId:string):Promise<OrchestrationResponse>=>{

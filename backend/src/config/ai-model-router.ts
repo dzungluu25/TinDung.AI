@@ -8,6 +8,7 @@ import { getFptMarketplaceClient } from "./fpt-marketplace";
 export type AiTask =
   | "intent"
   | "extraction"
+  | "draft-extraction"
   | "advisory"
   | "planning"
   | "legal"
@@ -41,6 +42,11 @@ export const AI_MODEL_PROFILES: Readonly<Record<AiTask, AiModelProfile>> = {
     maxOutputTokens: 256,
   },
   extraction: {
+    primaryModel: config.fptExtractionModel,
+    fallbackModel: config.fptFallbackModel,
+    maxOutputTokens: 4_096,
+  },
+  "draft-extraction": {
     primaryModel: config.fptExtractionModel,
     fallbackModel: config.fptFallbackModel,
     maxOutputTokens: 4_096,
@@ -82,11 +88,15 @@ const runCompletionWithTimeout = async (
   const controller = new AbortController();
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
+  const timeoutMs = (task === "intent" || task === "draft-extraction")
+    ? config.llmInteractiveTimeoutMs
+    : config.llmRequestTimeoutMs;
+
   const timeoutPromise = new Promise<never>((_, reject) => {
     timeoutId = setTimeout(() => {
       controller.abort();
-      reject(new AiCompletionTimeoutError(task, model, config.llmRequestTimeoutMs));
-    }, config.llmRequestTimeoutMs);
+      reject(new AiCompletionTimeoutError(task, model, timeoutMs));
+    }, timeoutMs);
   });
 
   const completionPromise = client.chat.completions.create(
@@ -96,7 +106,7 @@ const runCompletionWithTimeout = async (
       max_tokens: maxOutputTokens,
     },
     {
-      timeout: config.llmRequestTimeoutMs,
+      timeout: timeoutMs,
       signal: controller.signal,
     }
   );

@@ -598,7 +598,7 @@ const extractLocalDraftCaseFromPrompt = (prompt: string): Record<string, unknown
 
 export const extractDraftCaseFromPrompt = async (prompt: string): Promise<Record<string, unknown>> => {
   try {
-    const res = await createAiCompletion("extraction", {
+    const res = await createAiCompletion("draft-extraction", {
       messages: [
         { role: "system", content: SYSTEM_PROMPT_DRAFT_CASE },
         { role: "user", content: prompt },
