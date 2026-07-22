@@ -45,9 +45,9 @@ export const LandingPage = () => {
     <div className={styles.page}>
       <header className={styles.navbar}>
         <div className={styles.navInner}>
-          <Link to="/" className={styles.brand} aria-label="VAIC home">
+          <Link to="/" className={styles.brand} aria-label="TinDung.AI home">
             <span className={styles.brandMark}><Activity size={19} /></span>
-            <span><strong>VAIC</strong><small>Decision Intelligence</small></span>
+            <span><strong>TinDung.AI</strong><small>Decision Intelligence</small></span>
           </Link>
           <nav className={styles.navLinks} aria-label="Điều hướng landing page">
             <a href="#platform">Nền tảng</a><a href="#flow">Cách hoạt động</a><a href="#safety">AI an toàn</a>
@@ -62,7 +62,7 @@ export const LandingPage = () => {
           <div className={styles.heroCopy}>
             <span className={styles.eyebrow}><span className={styles.pulseDot} /> AI credit operating system</span>
             <h1>Biến hồ sơ phức tạp thành quyết định <em>có thể tin cậy.</em></h1>
-            <p>VAIC kết hợp multi-agent, deterministic rules và evidence governance để ngân hàng thẩm định nhanh hơn—mà không đánh đổi khả năng giải thích.</p>
+            <p>TinDung.AI kết hợp multi-agent, deterministic rules và evidence governance để ngân hàng thẩm định nhanh hơn—mà không đánh đổi khả năng giải thích.</p>
             <div className={styles.heroActions}>
               <Link to="/workspace" className={styles.primaryCta}>Chạy một hồ sơ <ArrowRight size={17} /></Link>
               <a href="#flow" className={styles.secondaryCta}><span><Workflow size={16} /></span> Xem agent vận hành</a>
@@ -111,7 +111,7 @@ export const LandingPage = () => {
 
         <section className={`${styles.platform} ${styles.reveal}`} id="platform">
           <div className={styles.sectionHead}>
-            <div><span className={styles.kicker}>What makes VAIC different</span><h2>Không chỉ là chatbot.<br />Đây là một hệ điều hành quyết định.</h2></div>
+            <div><span className={styles.kicker}>What makes TinDung.AI different</span><h2>Không chỉ là chatbot.<br />Đây là một hệ điều hành quyết định.</h2></div>
             <p>Mỗi lớp trong hệ thống giải quyết một loại rủi ro khác nhau: AI hiểu ngữ cảnh, rules tính toán, tools tìm bằng chứng và governance quyết định khi nào phải dừng.</p>
           </div>
           <div className={styles.bentoGrid}>
@@ -145,7 +145,7 @@ export const LandingPage = () => {
           <div className={styles.safetyCopy}>
             <span className={styles.kicker}>Abstention is a feature</span>
             <h2>Không chắc chắn không đồng nghĩa với “đoán”.</h2>
-            <p>Nếu agent thiếu bằng chứng, model trả sai schema hoặc một tool thất bại, VAIC không tạo hạn mức giả. Hồ sơ được chuyển đúng người cùng toàn bộ lý do.</p>
+            <p>Nếu agent thiếu bằng chứng, model trả sai schema hoặc một tool thất bại, TinDung.AI không tạo hạn mức giả. Hồ sơ được chuyển đúng người cùng toàn bộ lý do.</p>
             <div className={styles.safetyStatus}><span><TimerReset size={15} /> NEEDS_REVIEW</span><small>Approved terms withheld</small></div>
           </div>
           <div className={styles.controlGrid}>
@@ -168,7 +168,7 @@ export const LandingPage = () => {
         </section>
       </main>
 
-      <footer className={styles.footer}><Link to="/" className={styles.brand}><span className={styles.brandMark}><Activity size={17} /></span><span><strong>VAIC</strong><small>Decision Intelligence</small></span></Link><span>AI Challenge 2026 · Built for explainable banking</span></footer>
+      <footer className={styles.footer}><Link to="/" className={styles.brand}><span className={styles.brandMark}><Activity size={17} /></span><span><strong>TinDung.AI</strong><small>Decision Intelligence</small></span></Link><span>AI Challenge 2026 · Built for explainable banking</span></footer>
     </div>
   );
 };

@@ -15,7 +15,7 @@ $env:CREDIT_MODEL_DIR = "artifacts/champion"
 uvicorn credit_risk.api:app --host 0.0.0.0 --port 8000
 ```
 
-Hoặc từ thư mục `VAIC2026_Nat_Figure`, sau khi đã train artifact:
+Hoặc từ thư mục `TinDung.AI`, sau khi đã train artifact:
 
 ```powershell
 docker compose --profile ml up --build credit-risk-model

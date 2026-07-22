@@ -16,7 +16,7 @@ QUY TẮC:
 - Nếu không chắc chắn về một chi tiết chính sách cụ thể, nói rõ giới hạn thay vì suy đoán.`;
 
 const OUT_OF_DOMAIN_ANSWER =
-  "Tôi là Trợ lý ảo hỗ trợ thẩm định tín dụng VAIC. Tôi có thể giúp bạn thẩm định hồ sơ vay hoặc tư vấn các câu hỏi nghiệp vụ, chính sách, pháp lý liên quan tới tín dụng bán lẻ. Bạn vui lòng đặt câu hỏi trong phạm vi này nhé.";
+  "Tôi là Trợ lý ảo hỗ trợ thẩm định tín dụng TinDung.AI. Tôi có thể giúp bạn thẩm định hồ sơ vay hoặc tư vấn các câu hỏi nghiệp vụ, chính sách, pháp lý liên quan tới tín dụng bán lẻ. Bạn vui lòng đặt câu hỏi trong phạm vi này nhé.";
 
 /**
  * Handles the two intents the classifier routes away from the credit pipeline. Never

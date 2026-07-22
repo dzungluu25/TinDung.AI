@@ -1,7 +1,7 @@
 {
-  "name": "vaic-backend",
+  "name": "tindung-ai-backend",
   "version": "1.0.0",
-  "description": "Backend for VAIC Digital Expert Agents Demo",
+  "description": "Backend for TinDung.AI Digital Expert Agents Demo",
   "main": "dist/server.js",
   "scripts": {
     "start": "node dist/server.js",

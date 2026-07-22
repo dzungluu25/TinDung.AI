@@ -53,12 +53,12 @@ export const LoginPage = () => {
             </svg>
           </span>
           <span className={styles.brandName}>
-            <strong>VAIC 2026</strong>
+            <strong>TinDung.AI</strong>
             <small>Nat Figure</small>
           </span>
         </div>
 
-        <span className={styles.eyebrow}>VAIC Credit Intelligence</span>
+        <span className={styles.eyebrow}>TinDung.AI Credit Intelligence</span>
         <h1 className={styles.title}>Đăng nhập</h1>
         <p className={styles.subtitle}>Quyền truy cập hồ sơ được xác định theo role và phạm vi được phân công.</p>
 

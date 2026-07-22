@@ -30,7 +30,7 @@ export const config = {
   pdftoppmCommand: process.env.PDFTOPPM_COMMAND || "pdftoppm",
   gmailSmtpUser: process.env.GMAIL_SMTP_USER || "",
   gmailSmtpAppPassword: process.env.GMAIL_SMTP_APP_PASSWORD || "",
-  gmailSenderName: process.env.GMAIL_SENDER_NAME || "SHB VAIC Credit Ops",
+  gmailSenderName: process.env.GMAIL_SENDER_NAME || "SHB TinDung.AI Credit Ops",
   supabaseStorageBucket: process.env.SUPABASE_STORAGE_BUCKET || "loan-documents",
   documentStorageDriver: (process.env.DOCUMENT_STORAGE_DRIVER || "").toLowerCase(),
   localDocumentStorageDir: process.env.LOCAL_DOCUMENT_STORAGE_DIR || path.resolve(process.cwd(), "uploads"),

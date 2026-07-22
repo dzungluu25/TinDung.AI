@@ -1,4 +1,4 @@
-# VAIC Credit Growth OS — AI Core v2
+# TinDung.AI Credit Growth OS — AI Core v2
 
 ## Product thesis
 

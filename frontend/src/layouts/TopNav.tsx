@@ -52,7 +52,7 @@ export const TopNav = () => {
           </svg>
         </span>
         <span>
-          <strong>VAIC 2026</strong>
+          <strong>TinDung.AI</strong>
           <small>Nat Figure</small>
         </span>
       </Link>

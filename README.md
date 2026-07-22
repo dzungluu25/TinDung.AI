@@ -1,4 +1,4 @@
-# VAIC2026_Nat_Figure
+# TinDung.AI
 
 Hệ thống multi-agent hỗ trợ thẩm định tín dụng bán lẻ, vận hành theo nguyên tắc accuracy-first, human oversight và fail-closed.
 
